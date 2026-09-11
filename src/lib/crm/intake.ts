@@ -1,13 +1,14 @@
-import { randomBytes } from "node:crypto";
 import { and, eq, gte, count } from "drizzle-orm";
 import { authDb, withSystemTenantContext } from "@/db/client";
 import { tenants, leads } from "@/db/schema";
+import { generateToken } from "@/lib/tokens";
 import { findOrCreateCustomer, findOrCreateProperty } from "./dedupe";
 import { createLead } from "./leads";
+import { scheduleLeadFollowUps } from "@/lib/jobs/schedule-lead-jobs";
 
 /** Generates a new tenant's public_intake_key — used at tenant creation (seed.ts, and M7's onboarding flow). */
 export function generateIntakeKey(): string {
-  return randomBytes(24).toString("base64url");
+  return generateToken();
 }
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -50,7 +51,7 @@ export async function submitWebsiteLead(intakeKey: string, payload: WebsiteLeadP
     return { status: "ignored" };
   }
 
-  return withSystemTenantContext(tenant.id, async (tx) => {
+  const result = await withSystemTenantContext(tenant.id, async (tx) => {
     const [{ recentCount }] = await tx
       .select({ recentCount: count() })
       .from(leads)
@@ -63,7 +64,7 @@ export async function submitWebsiteLead(intakeKey: string, payload: WebsiteLeadP
       );
 
     if (recentCount >= RATE_LIMIT_MAX_PER_WINDOW) {
-      return { status: "rate_limited" };
+      return { status: "rate_limited" as const };
     }
 
     const customer = await findOrCreateCustomer(tx, tenant.id, {
@@ -79,6 +80,14 @@ export async function submitWebsiteLead(intakeKey: string, payload: WebsiteLeadP
       { type: "system" },
     );
 
-    return { status: "created", leadId: lead.id };
+    return { status: "created" as const, leadId: lead.id, createdAt: lead.createdAt };
   });
+
+  // Queued after the transaction commits — job scheduling isn't itself
+  // transactional with the lead insert (see schedule-lead-jobs.ts).
+  if (result.status === "created") {
+    await scheduleLeadFollowUps(tenant.id, result.leadId, result.createdAt);
+    return { status: "created", leadId: result.leadId };
+  }
+  return result;
 }

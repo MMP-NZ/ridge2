@@ -31,6 +31,11 @@ export const leads = pgTable(
     campaign: text("campaign"),
     stage: leadStageEnum("stage").notNull().default("new"),
 
+    // Powers the public /book/[bookingToken] page (M2) — random, unique,
+    // generated for every lead (including manually-added ones) so a booking
+    // link can always be sent regardless of source.
+    bookingToken: text("booking_token").notNull().unique(),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

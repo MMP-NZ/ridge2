@@ -42,6 +42,16 @@ async function main() {
       passwordHash: await hashPassword("demo-password-not-for-real-use"),
     });
 
+    // Tue/Thu 8am-4pm quote days, so the booking flow is testable out of the box (M2).
+    await db.insert(schema.calendarRules).values({
+      tenantId: tenant.id,
+      quoteDaysOfWeek: [2, 4],
+      quoteHoursStartMin: 480,
+      quoteHoursEndMin: 960,
+      visitLengthMinutes: 45,
+      travelBufferMinutes: 15,
+    });
+
     console.log(`Seeded demo tenant ${tenant.id} (${tenant.businessName})`);
     console.log("Demo roofer login: demo.roofer@example.com / demo-password-not-for-real-use");
     console.log(`Website intake URL: POST /api/public/leads/${intakeKey}`);

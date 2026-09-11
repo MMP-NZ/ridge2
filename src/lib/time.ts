@@ -94,3 +94,24 @@ export function isNzDaytimeHours(date: Date): boolean {
   const { hour } = toNzParts(date);
   return hour >= 8 && hour < 20;
 }
+
+/**
+ * If `date` already falls in the 8am-8pm NZ daytime window, returns it
+ * unchanged; otherwise returns 8am NZ time on the same day (if `date` is
+ * before 8am) or the next day (if at/after 8pm). Used for non-urgent sends
+ * (CLAUDE.md: "Non-urgent texts go out in daytime hours only") like the
+ * day-before visit reminder, which is computed as a plain time offset and
+ * may land outside daytime hours.
+ */
+export function nextDaytimeSendTime(date: Date): Date {
+  if (isNzDaytimeHours(date)) return date;
+
+  const { year, month, day, hour } = toNzParts(date);
+  if (hour < 8) {
+    return nzLocalToUtc(year, month, day, 8, 0);
+  }
+  // hour >= 20: push to 8am the next local day.
+  const nextDay = new Date(nzLocalToUtc(year, month, day, 8, 0).getTime() + 24 * 60 * 60 * 1000);
+  const nextParts = toNzParts(nextDay);
+  return nzLocalToUtc(nextParts.year, nextParts.month, nextParts.day, 8, 0);
+}

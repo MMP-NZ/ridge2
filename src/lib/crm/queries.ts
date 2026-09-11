@@ -1,6 +1,7 @@
-import { and, eq, desc, inArray } from "drizzle-orm";
+import { and, eq, desc, inArray, lt } from "drizzle-orm";
 import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { customers, properties, leads, leadEvents, type LeadStage } from "@/db/schema";
+import { needsCallCutoff } from "@/lib/jobs/schedule";
 
 export interface LeadListItem {
   id: string;
@@ -42,6 +43,17 @@ export async function listLeads(tenantId: string, stage?: LeadStage): Promise<Le
 export async function countNewLeads(tenantId: string): Promise<number> {
   const rows = await listLeads(tenantId, "new");
   return rows.length;
+}
+
+/** Leads still `new` more than 2 days after creation (build-plan M2's "call task at 2 days", surfaced as a computed filter rather than a stored task — see docs/decisions.md). */
+export async function countLeadsNeedingCall(tenantId: string): Promise<number> {
+  return withRooferAccess(tenantId, async (tx) => {
+    const rows = await tx
+      .select({ id: leads.id })
+      .from(leads)
+      .where(and(eq(leads.tenantId, tenantId), eq(leads.stage, "new"), lt(leads.createdAt, needsCallCutoff(new Date()))));
+    return rows.length;
+  });
 }
 
 export interface CustomerDetail {

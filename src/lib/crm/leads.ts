@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { leads, leadEvents, type Lead, type LeadSource } from "@/db/schema";
 import type { AppTx } from "@/db/client";
 import { withStaffTenantAccess } from "@/lib/auth/with-tenant-context";
+import { generateToken } from "@/lib/tokens";
 
 export interface LeadActor {
   type: "roofer" | "staff" | "system";
@@ -33,6 +34,7 @@ export async function createLead(
       propertyId: input.propertyId,
       source: input.source,
       campaign: input.campaign,
+      bookingToken: generateToken(),
     })
     .returning();
 

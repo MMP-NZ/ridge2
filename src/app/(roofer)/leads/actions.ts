@@ -6,6 +6,7 @@ import { getCurrentRooferSession } from "@/lib/auth/current-session";
 import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { advanceLeadStage, closeLead, createLead } from "@/lib/crm/leads";
 import { findOrCreateCustomer, findOrCreateProperty } from "@/lib/crm/dedupe";
+import { scheduleLeadFollowUps } from "@/lib/jobs/schedule-lead-jobs";
 import type { LeadSource } from "@/db/schema";
 
 async function requireSession() {
@@ -58,19 +59,21 @@ export async function addLeadAction(_prevState: AddLeadState, formData: FormData
     return { error: "Enter a name, an address, and a phone or email." };
   }
 
-  const leadId = await withRooferAccess(session.tenantId, async (tx) => {
+  const lead = await withRooferAccess(session.tenantId, async (tx) => {
     const customer = await findOrCreateCustomer(tx, session.tenantId, { name, phone: phone || undefined, email: email || undefined });
     const property = await findOrCreateProperty(tx, session.tenantId, customer.id, address);
-    const lead = await createLead(
+    return createLead(
       tx,
       session.tenantId,
       { customerId: customer.id, propertyId: property.id, source },
       { type: "roofer", id: session.rooferUserId },
     );
-    return lead.id;
   });
+
+  // Queued after the transaction commits — see schedule-lead-jobs.ts.
+  await scheduleLeadFollowUps(session.tenantId, lead.id, lead.createdAt);
 
   revalidatePath("/leads");
   revalidatePath("/today");
-  redirect(`/leads?added=${leadId}`);
+  redirect(`/leads?added=${lead.id}`);
 }

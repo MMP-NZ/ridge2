@@ -7,3 +7,6 @@ export * from "./customers";
 export * from "./properties";
 export * from "./leads";
 export * from "./lead-events";
+export * from "./calendar-rules";
+export * from "./visits";
+export * from "./messages";
