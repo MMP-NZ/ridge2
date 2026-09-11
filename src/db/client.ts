@@ -45,7 +45,7 @@ export type AppTx = Parameters<TransactionCallback>[0];
  * audit logging) can't be forgotten at a call site.
  */
 async function withTenantContext<T>(
-  userRole: "roofer" | "staff",
+  userRole: "roofer" | "staff" | "system",
   tenantId: string,
   fn: (tx: AppTx) => Promise<T>,
 ): Promise<T> {
@@ -70,4 +70,16 @@ export function withRooferTenantContext<T>(tenantId: string, fn: (tx: AppTx) => 
  */
 export function withStaffTenantContext<T>(tenantId: string, fn: (tx: AppTx) => Promise<T>): Promise<T> {
   return withTenantContext("staff", tenantId, fn);
+}
+
+/**
+ * An unattended system process acting on a tenant's own data on its
+ * behalf — e.g. the public website intake endpoint creating a lead with no
+ * signed-in user at all (src/lib/crm/intake.ts). RLS treats this the same
+ * as a roofer session (tenant-scoped, no cross-tenant bypass); the
+ * distinct 'system' value is for audit/debugging clarity, not access
+ * control — see src/db/schema/lead-events.ts's actorType.
+ */
+export function withSystemTenantContext<T>(tenantId: string, fn: (tx: AppTx) => Promise<T>): Promise<T> {
+  return withTenantContext("system", tenantId, fn);
 }

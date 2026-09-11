@@ -15,6 +15,20 @@
       "when": 1789140144434,
       "tag": "0001_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789142571403,
+      "tag": "0002_fixed_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789142571404,
+      "tag": "0003_leads_crm_rls",
+      "breakpoints": true
     }
   ]
 }

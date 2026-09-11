@@ -8,6 +8,11 @@ export default function MorePage() {
         <p>{PRODUCT_NAME}</p>
         <p className="mt-1">Settings, price book and account details land in later milestones.</p>
       </div>
+      <form action="/logout" method="post">
+        <button type="submit" className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium">
+          Log out
+        </button>
+      </form>
     </main>
   );
 }

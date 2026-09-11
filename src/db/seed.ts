@@ -6,6 +6,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth/password";
+import { generateIntakeKey } from "@/lib/crm/intake";
 
 /**
  * One fictional demo tenant, per CLAUDE.md's build-plan M0 requirement and
@@ -23,12 +24,14 @@ async function main() {
   const db = drizzle(sql, { schema });
 
   try {
+    const intakeKey = generateIntakeKey();
     const [tenant] = await db
       .insert(schema.tenants)
       .values({
         businessName: "Demo Roofing Co (fictional)",
         plan: "basic",
         freeMonthEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        publicIntakeKey: intakeKey,
       })
       .returning();
 
@@ -41,6 +44,7 @@ async function main() {
 
     console.log(`Seeded demo tenant ${tenant.id} (${tenant.businessName})`);
     console.log("Demo roofer login: demo.roofer@example.com / demo-password-not-for-real-use");
+    console.log(`Website intake URL: POST /api/public/leads/${intakeKey}`);
   } finally {
     await sql.end();
   }

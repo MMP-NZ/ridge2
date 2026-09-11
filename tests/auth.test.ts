@@ -8,6 +8,7 @@ import { generateTotpSecret, totpEnrollmentUri, verifyTotpCode, verifyTotpCodeEn
 import { encryptSecret, decryptSecret } from "@/lib/auth/encryption";
 import { createRooferSession, verifySessionToken, destroySessionToken } from "@/lib/auth/session";
 import { truncateAllTables } from "./db-helpers";
+import { makeTenant } from "./factories";
 import * as OTPAuth from "otpauth";
 
 const ownerSql = postgres(process.env.DATABASE_MIGRATE_URL!, { max: 1 });
@@ -64,7 +65,7 @@ describe("TOTP", () => {
 
 describe("sessions", () => {
   test("a freshly created session verifies", async () => {
-    const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName: "Session Co" }).returning();
+    const tenant = await makeTenant(ownerDb, "Session Co");
     const [roofer] = await ownerDb
       .insert(schema.rooferUsers)
       .values({ tenantId: tenant.id, email: "session@example.com", passwordHash: "x" })
@@ -79,7 +80,7 @@ describe("sessions", () => {
   });
 
   test("an expired session fails verification and is removed", async () => {
-    const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName: "Expired Co" }).returning();
+    const tenant = await makeTenant(ownerDb, "Expired Co");
     const [roofer] = await ownerDb
       .insert(schema.rooferUsers)
       .values({ tenantId: tenant.id, email: "expired@example.com", passwordHash: "x" })
@@ -102,7 +103,7 @@ describe("sessions", () => {
   });
 
   test("destroying a session prevents it from verifying again", async () => {
-    const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName: "Logout Co" }).returning();
+    const tenant = await makeTenant(ownerDb, "Logout Co");
     const [roofer] = await ownerDb
       .insert(schema.rooferUsers)
       .values({ tenantId: tenant.id, email: "logout@example.com", passwordHash: "x" })

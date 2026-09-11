@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { withRooferTenantContext, withStaffTenantContext } from "@/db/client";
 import { truncateAllTables } from "./db-helpers";
+import { makeTenant } from "./factories";
 
 // Fixtures are created with the migration/owner role, which (as a
 // superuser locally, or a BYPASSRLS role in production — see docs/deploy.md)
@@ -14,7 +15,7 @@ const ownerSql = postgres(process.env.DATABASE_MIGRATE_URL!, { max: 1 });
 const ownerDb = drizzle(ownerSql, { schema });
 
 async function makeTenantWithRoofer(businessName: string) {
-  const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName }).returning();
+  const tenant = await makeTenant(ownerDb, businessName);
   const [roofer] = await ownerDb
     .insert(schema.rooferUsers)
     .values({

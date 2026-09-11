@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { withStaffTenantAccess, withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { truncateAllTables } from "./db-helpers";
+import { makeTenant } from "./factories";
 
 const ownerSql = postgres(process.env.DATABASE_MIGRATE_URL!, { max: 1 });
 const ownerDb = drizzle(ownerSql, { schema });
@@ -19,7 +20,7 @@ afterAll(async () => {
 
 describe("staff access auditing", () => {
   test("withStaffTenantAccess writes exactly one audit_log row, visible to that tenant", async () => {
-    const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName: "Audited Roofing Co" }).returning();
+    const tenant = await makeTenant(ownerDb, "Audited Roofing Co");
     const [staff] = await ownerDb
       .insert(schema.staffUsers)
       .values({ email: "staffer@junologic.example", name: "Staffer", passwordHash: "not-a-real-hash" })
@@ -36,7 +37,7 @@ describe("staff access auditing", () => {
   });
 
   test("if the wrapped action throws, no audit_log row is written (same transaction)", async () => {
-    const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName: "Failing Access Co" }).returning();
+    const tenant = await makeTenant(ownerDb, "Failing Access Co");
     const [staff] = await ownerDb
       .insert(schema.staffUsers)
       .values({ email: "staffer2@junologic.example", name: "Staffer Two", passwordHash: "not-a-real-hash" })
@@ -53,7 +54,7 @@ describe("staff access auditing", () => {
   });
 
   test("a roofer can read their own tenant's audit log", async () => {
-    const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName: "Readable Log Co" }).returning();
+    const tenant = await makeTenant(ownerDb, "Readable Log Co");
     const [staff] = await ownerDb
       .insert(schema.staffUsers)
       .values({ email: "staffer3@junologic.example", name: "Staffer Three", passwordHash: "not-a-real-hash" })
@@ -67,7 +68,7 @@ describe("staff access auditing", () => {
   });
 
   test("a roofer cannot write to the audit log directly", async () => {
-    const [tenant] = await ownerDb.insert(schema.tenants).values({ businessName: "Write Attempt Co" }).returning();
+    const tenant = await makeTenant(ownerDb, "Write Attempt Co");
     const [staff] = await ownerDb
       .insert(schema.staffUsers)
       .values({ email: "staffer4@junologic.example", name: "Staffer Four", passwordHash: "not-a-real-hash" })
