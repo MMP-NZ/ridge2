@@ -1,0 +1,38 @@
+name: Deploy staging (AWS Auckland)
+
+# Scaffolded in Milestone 0, not yet wired up to a real AWS environment.
+# Requires the repo secrets listed in docs/deploy.md (AWS account/role,
+# ECR repository, staging DATABASE_URL etc.) — until those exist this job
+# intentionally stops after the build step. See docs/deploy.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check staging secrets are configured
+        id: check
+        run: |
+          if [ -z "${{ secrets.AWS_ROLE_TO_ASSUME }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::AWS_ROLE_TO_ASSUME is not set — skipping deploy. See docs/deploy.md for the secrets this workflow needs."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Docker image
+        if: steps.check.outputs.configured == 'true'
+        run: docker build -t ridge:${{ github.sha }} .
+
+      # TODO once AWS access is available (see docs/deploy.md):
+      #   - configure-aws-credentials (OIDC role assumption)
+      #   - authenticate to ECR (ap-southeast-6, Auckland)
+      #   - push the image, tagged with the commit SHA
+      #   - trigger the staging deployment (ECS service update or equivalent)
+      #   - run `pnpm db:migrate` against the staging database
