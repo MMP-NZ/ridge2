@@ -1,6 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { leads, properties, visits } from "@/db/schema";
 import { withSystemTenantContext } from "@/db/client";
+import { isUniqueViolation } from "@/db/errors";
 import { getCalendarRules } from "./calendar-rules";
 import { generateOpenSlots } from "./slots";
 import { advanceLeadStage } from "@/lib/crm/leads";
@@ -17,10 +18,6 @@ export type BookVisitResult =
   | { status: "not_open" };
 
 const SLOT_SEARCH_WINDOW_DAYS = 21;
-
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "23505";
-}
 
 /**
  * Books a quote visit for a lead. Re-derives the currently-open slots

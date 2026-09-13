@@ -1,14 +1,16 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 /**
- * AES-256-GCM, used only to encrypt TOTP secrets at rest (TOTP_ENCRYPTION_KEY
- * env var, 32 random bytes as hex — see .env.example). Format:
+ * AES-256-GCM, used to encrypt any long-lived credential at rest that must
+ * never be readable from a DB dump alone — TOTP secrets (M0) and Meta Page
+ * access tokens (M3) both use this (SECRET_ENCRYPTION_KEY env var, 32
+ * random bytes as hex — see .env.example). Format:
  * <ivHex>:<authTagHex>:<ciphertextHex>.
  */
 function getKey(): Buffer {
-  const hex = process.env.TOTP_ENCRYPTION_KEY;
+  const hex = process.env.SECRET_ENCRYPTION_KEY;
   if (!hex || hex.length !== 64) {
-    throw new Error("TOTP_ENCRYPTION_KEY must be set to 32 bytes (64 hex chars) — see .env.example");
+    throw new Error("SECRET_ENCRYPTION_KEY must be set to 32 bytes (64 hex chars) — see .env.example");
   }
   return Buffer.from(hex, "hex");
 }
