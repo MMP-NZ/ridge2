@@ -1,5 +1,6 @@
 import { PRODUCT_NAME } from "@/lib/config";
 import {
+  CalendarIcon,
   LogoutIcon,
   MegaphoneIcon,
   PriceBookIcon,
@@ -35,6 +36,12 @@ export default function MorePage() {
       <section className="flex flex-col gap-3">
         <SectionHeading>Your setup</SectionHeading>
         <nav className="flex flex-col gap-2.5" aria-label="Settings">
+          <NavRow
+            href="/jobs"
+            icon={<CalendarIcon className="h-5 w-5" />}
+            title="Jobs"
+            description="Work won, booked in and finished"
+          />
           <NavRow
             href="/price-book"
             icon={<PriceBookIcon className="h-5 w-5" />}

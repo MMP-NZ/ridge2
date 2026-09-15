@@ -44,7 +44,10 @@ export function OfflineSync() {
   }, [router]);
 
   useEffect(() => {
-    void flush();
+    // Deferred rather than called straight from the effect body: the first
+    // drain has no reason to block the first paint, and calling it
+    // synchronously here would set state mid-render and cascade.
+    const initial = setTimeout(() => void flush(), 0);
 
     const onOnline = () => void flush();
     const onVisible = () => {
@@ -58,6 +61,7 @@ export function OfflineSync() {
     window.addEventListener("ridge:outbox-changed", onOnline);
 
     return () => {
+      clearTimeout(initial);
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("ridge:outbox-changed", onOnline);

@@ -68,11 +68,13 @@ export function QuoteBuilder({
   lines: initialLines,
   priceBook,
   gstRateBp,
+  estimatedDays,
 }: {
   quoteId: string;
   lines: BuilderLine[];
   priceBook: PriceBookOption[];
   gstRateBp: number;
+  estimatedDays: number;
 }) {
   const [lines, setLines] = useState<EditableLine[]>(() => initialLines.map(toEditable));
   const [saveState, saveAction, saving] = useActionState(saveQuoteLinesAction, initialState);
@@ -243,6 +245,23 @@ export function QuoteBuilder({
         <Button type="button" variant="secondary" block onClick={addBlankLine} icon={<PlusIcon className="h-4 w-4" />}>
           Add a line
         </Button>
+
+        <Card className="flex flex-col gap-2">
+          <Field
+            label="How many days on site"
+            htmlFor="estimatedDays"
+            help="Used to book the work into your diary if they accept. You can change it later."
+          >
+            <TextInput
+              id="estimatedDays"
+              name="estimatedDays"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              defaultValue={estimatedDays}
+            />
+          </Field>
+        </Card>
 
         <Card tone="raised" className="flex flex-col gap-2">
           <CardTitle>Total</CardTitle>

@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { getCurrentRooferSession } from "@/lib/auth/current-session";
 import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { calendarRules as calendarRulesTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { listVisits, mapsSearchUrl } from "@/lib/booking/queries";
+import { listScheduled } from "@/lib/scheduling/jobs";
+import { toWorkDate, isWorkDay } from "@/lib/scheduling/work-days";
 import { toNzParts } from "@/lib/time";
 import { AlertIcon, PinIcon, SettingsIcon } from "@/components/icons";
 import {
@@ -29,15 +32,31 @@ export default async function CalendarPage() {
   const now = new Date();
   const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
   const upcomingVisits = await listVisits(session.tenantId, now, twoWeeksOut);
+  const scheduledJobs = await withRooferAccess(session.tenantId, (tx) => listScheduled(tx, session.tenantId));
 
-  const days: { date: Date; key: string; isQuoteDay: boolean }[] = [];
+  // Work days stop looking empty once the jobs booked into them show up.
+  const jobsByDay = new Map<string, typeof scheduledJobs>();
+  for (const summary of scheduledJobs) {
+    for (const workDate of summary.days) {
+      if (!jobsByDay.has(workDate)) jobsByDay.set(workDate, []);
+      jobsByDay.get(workDate)!.push(summary);
+    }
+  }
+
+  const days: { date: Date; key: string; workDate: string; isQuoteDay: boolean; isWorking: boolean }[] = [];
   for (let i = 0; i < 14; i++) {
     const date = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
     const parts = toNzParts(date);
+    const workDate = toWorkDate(date);
     days.push({
       date,
       key: `${parts.year}-${parts.month}-${parts.day}`,
+      workDate,
       isQuoteDay: rules?.quoteDaysOfWeek.includes(parts.weekday) ?? false,
+      // Straight from the scheduler's own rule, so the calendar can't claim
+      // a day is a work day that the scheduler would never offer — Sundays
+      // being the case that gave it away.
+      isWorking: rules ? isWorkDay(rules, workDate) : false,
     });
   }
 
@@ -85,9 +104,10 @@ export default async function CalendarPage() {
       ) : null}
 
       <div className="flex flex-col gap-2.5">
-        {days.map(({ date, key, isQuoteDay }, index) => {
+        {days.map(({ date, key, workDate, isQuoteDay, isWorking }, index) => {
           const dayVisits = visitsByDay.get(key) ?? [];
-          const busy = dayVisits.length > 0;
+          const dayJobs = jobsByDay.get(workDate) ?? [];
+          const busy = dayVisits.length > 0 || dayJobs.length > 0;
           return (
             <Card
               key={key}
@@ -107,8 +127,8 @@ export default async function CalendarPage() {
                     </span>
                   ) : null}
                 </div>
-                <Badge tone={isQuoteDay ? "accent" : "outline"}>
-                  {isQuoteDay ? "Quote day" : "Work day"}
+                <Badge tone={isQuoteDay ? "accent" : isWorking ? "outline" : "neutral"}>
+                  {isQuoteDay ? "Quote day" : isWorking ? "Work day" : "Day off"}
                 </Badge>
               </div>
 
@@ -140,10 +160,25 @@ export default async function CalendarPage() {
                       </span>
                     </li>
                   ))}
+                  {dayJobs.map((summary) => (
+                    <li key={summary.job.id} className="flex items-start gap-3 px-4 py-3">
+                      <span className="w-16 shrink-0 text-caption font-bold text-accent">On site</span>
+                      <span className="min-w-0 flex-1">
+                        <Link href={`/jobs/${summary.job.id}`} className="block text-body font-semibold">
+                          {summary.customerName}
+                        </Link>
+                        <span className="mt-0.5 block text-caption text-muted">
+                          Day {summary.days.indexOf(workDate) + 1} of {summary.days.length}
+                          {" · "}
+                          {summary.propertyAddress}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               ) : (
                 <p className="border-t border-border px-4 py-2.5 text-caption text-muted">
-                  {isQuoteDay ? "Open for bookings" : "Nothing booked"}
+                  {isQuoteDay ? "Open for bookings" : isWorking ? "Nothing booked" : "—"}
                 </p>
               )}
             </Card>

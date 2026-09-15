@@ -133,8 +133,8 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] Suggested days never clash with quote days or existing jobs
-- [ ] Moving a job notifies the customer once, with the new dates
+- [x] Suggested days never clash with quote days or existing jobs
+- [x] Moving a job notifies the customer once, with the new dates
 
 ---
 

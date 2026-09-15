@@ -3,7 +3,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, and } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { withRooferAccess, withStaffTenantAccess } from "@/lib/auth/with-tenant-context";
+import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { withRooferTenantContext } from "@/db/client";
 import { findOrCreateCustomer, findOrCreateProperty } from "@/lib/crm/dedupe";
 import { createLead, advanceLeadStage, advanceLeadStageTo, closeLead, changeLeadSource } from "@/lib/crm/leads";

@@ -95,6 +95,7 @@ export default async function QuotePage({
             unit: item.unit,
           }))}
           gstRateBp={quote.gstRateBp}
+          estimatedDays={quote.estimatedDays}
         />
       ) : (
         <SentQuote

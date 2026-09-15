@@ -13,7 +13,8 @@ import {
 } from "@/lib/quotes/quotes";
 import { scheduleQuoteJobs } from "@/lib/jobs/schedule-quote-jobs";
 import { parsePriceToCents, parseQuantityToThousandths } from "@/lib/quotes/parse";
-import type { PriceBookKind } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import { quotes as quotesTable, type PriceBookKind } from "@/db/schema";
 
 export interface QuoteEditorState {
   error?: string;
@@ -82,8 +83,19 @@ export async function saveQuoteLinesAction(
     });
   }
 
+  const estimatedDaysRaw = Number(String(formData.get("estimatedDays") ?? "1"));
+  const estimatedDays = Number.isFinite(estimatedDaysRaw) ? Math.max(1, Math.round(estimatedDaysRaw)) : 1;
+
   try {
-    await withRooferAccess(session.tenantId, (tx) => replaceQuoteLines(tx, session.tenantId, quoteId, lines));
+    await withRooferAccess(session.tenantId, async (tx) => {
+      await replaceQuoteLines(tx, session.tenantId, quoteId, lines);
+      // Saved alongside the lines so scheduling knows how long the work
+      // takes the moment the customer accepts (M5).
+      await tx
+        .update(quotesTable)
+        .set({ estimatedDays })
+        .where(and(eq(quotesTable.tenantId, session.tenantId), eq(quotesTable.id, quoteId)));
+    });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Couldn't save the quote." };
   }
