@@ -59,9 +59,21 @@ async function main() {
       .insert(schema.priceBookItems)
       .values(DEFAULT_PRICE_BOOK.map((item, index) => ({ ...item, tenantId: tenant.id, sortOrder: index })));
 
+    // A Juno Logic staff login for the admin console (M7). Idempotent, so
+    // re-seeding to get another demo roofer doesn't fail on the email.
+    await db
+      .insert(schema.staffUsers)
+      .values({
+        email: "staff@junologic.example",
+        name: "Juno Staffer",
+        passwordHash: await hashPassword("staff-password-not-for-real-use"),
+      })
+      .onConflictDoNothing();
+
     console.log(`Seeded demo tenant ${tenant.id} (${tenant.businessName})`);
     console.log("Demo roofer login: demo.roofer@example.com / demo-password-not-for-real-use");
     console.log(`Website intake URL: POST /api/public/leads/${intakeKey}`);
+    console.log("Juno Logic staff login: staff@junologic.example / staff-password-not-for-real-use");
   } finally {
     await sql.end();
   }
