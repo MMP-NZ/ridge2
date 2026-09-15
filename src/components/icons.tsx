@@ -228,3 +228,13 @@ export function SparkIcon(props: IconProps & { strokeWidth?: number }) {
     </Icon>
   );
 }
+
+export function CloudOffIcon(props: IconProps & { strokeWidth?: number }) {
+  return (
+    <Icon {...props}>
+      <path d="M17.5 17.5H7a4 4 0 0 1-.7-7.94" />
+      <path d="M8.5 6.2A5.5 5.5 0 0 1 18 9.5a3.8 3.8 0 0 1 2.9 5.1" />
+      <path d="m3.5 3.5 17 17" />
+    </Icon>
+  );
+}

@@ -12,6 +12,8 @@ import { parseQuantityToThousandths } from "@/lib/quotes/parse";
 export interface CaptureState {
   error?: string;
   savedAt?: string;
+  /** Set by the client when the capture went into the offline outbox instead of the server. */
+  queued?: boolean;
 }
 
 const CONDITIONS = ["good", "fair", "poor", "urgent"] as const;

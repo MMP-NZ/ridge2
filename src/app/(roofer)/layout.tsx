@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
+import { OfflineSync } from "@/components/offline-sync";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 import { getCurrentRooferSession } from "@/lib/auth/current-session";
 
 /**
@@ -21,6 +23,11 @@ export default async function RooferLayout({
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))]">
       {children}
+      {/* Both are app-wide on purpose: a visit written up on a roof must
+          sync as soon as he has reception, whether or not he happens to
+          reopen that visit. */}
+      <ServiceWorkerRegister />
+      <OfflineSync />
       <BottomNav />
     </div>
   );

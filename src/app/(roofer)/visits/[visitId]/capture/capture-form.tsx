@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { CameraIcon } from "@/components/icons";
+import { isOffline, queueCapture, queuePhoto } from "@/lib/offline/queue";
 import {
   Button,
   Card,
@@ -19,6 +21,13 @@ import {
 } from "./actions";
 
 const initialState: CaptureState = {};
+
+type CaptureCondition = "good" | "fair" | "poor" | "urgent" | undefined;
+
+function numberOrUndefined(value: FormDataEntryValue | null): number | undefined {
+  const parsed = Number(String(value ?? "").trim());
+  return String(value ?? "").trim() === "" || Number.isNaN(parsed) ? undefined : parsed;
+}
 
 const CONDITIONS = [
   { value: "good", label: "Good" },
@@ -47,10 +56,9 @@ export function CaptureForm({
   initial: CaptureInitial;
   photos: Array<{ id: string; caption: string | null }>;
 }) {
-  const [state, formAction, pending] = useActionState(
-    saveCaptureAction,
-    initialState,
-  );
+  const router = useRouter();
+  const [state, setState] = useState<CaptureState>(initialState);
+  const [pending, setPending] = useState(false);
 
   // Generated once and reused for every retry of this capture. It is the
   // idempotency key the database checks, so it must not change between
@@ -59,17 +67,87 @@ export function CaptureForm({
   const [clientCaptureId] = useState(() => crypto.randomUUID());
   const [uploading, setUploading] = useState(false);
 
+  /**
+   * The whole point of the milestone: a roof has no reception, so the form
+   * must never lose what he just measured.
+   *
+   * Offline is detected two ways, because navigator.onLine lies — it only
+   * reports whether there's a network interface, not whether anything is
+   * reachable, and "one bar in a valley" reads as online. So we check it
+   * first, and also treat a thrown request as offline. A returned
+   * validation error is a real answer from the server and shown as-is.
+   */
+  async function onCaptureSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+
+    setPending(true);
+    try {
+      if (!isOffline()) {
+        try {
+          const result = await saveCaptureAction({}, data);
+          setState(result);
+          if (!result.error) router.refresh();
+          return;
+        } catch {
+          // Fell through to the outbox below — the request never landed.
+        }
+      }
+
+      const queued = await queueCapture({
+        clientCaptureId,
+        visitId,
+        capturedAt: String(data.get("capturedAt") ?? new Date().toISOString()),
+        roofType: String(data.get("roofType") ?? "") || undefined,
+        material: String(data.get("material") ?? "") || undefined,
+        areaM2: numberOrUndefined(data.get("areaM2")),
+        pitchDegrees: numberOrUndefined(data.get("pitchDegrees")),
+        condition: (String(data.get("condition") ?? "") || undefined) as CaptureCondition,
+        siteNotes: String(data.get("siteNotes") ?? "") || undefined,
+      });
+
+      setState(
+        queued
+          ? { savedAt: new Date().toISOString(), queued: true }
+          : { error: "No connection, and this phone can't save offline — write the measurements down before you leave." },
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function onPhotoSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    const clientPhotoId = crypto.randomUUID();
     data.set("visitId", visitId);
-    data.set("clientPhotoId", crypto.randomUUID());
+    data.set("clientPhotoId", clientPhotoId);
 
     setUploading(true);
     try {
-      await uploadVisitPhotoAction(data);
-      form.reset();
+      if (!isOffline()) {
+        try {
+          await uploadVisitPhotoAction(data);
+          form.reset();
+          router.refresh();
+          return;
+        } catch {
+          // Queue it below instead.
+        }
+      }
+
+      const file = data.get("photo");
+      if (file instanceof File && file.size > 0) {
+        await queuePhoto({
+          clientPhotoId,
+          visitId,
+          contentType: file.type || "image/jpeg",
+          bytes: await file.arrayBuffer(),
+        });
+        form.reset();
+      }
     } finally {
       setUploading(false);
     }
@@ -77,7 +155,7 @@ export function CaptureForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <form action={formAction} className="flex flex-col gap-4">
+      <form onSubmit={onCaptureSubmit} className="flex flex-col gap-4">
         <input type="hidden" name="visitId" value={visitId} />
         <input type="hidden" name="clientCaptureId" value={clientCaptureId} />
         <input
@@ -166,7 +244,11 @@ export function CaptureForm({
 
         {state.error ? <FormMessage>{state.error}</FormMessage> : null}
         {state.savedAt && !state.error ? (
-          <FormMessage tone="success">Saved.</FormMessage>
+          <FormMessage tone={state.queued ? "info" : "success"}>
+            {state.queued
+              ? "Saved on your phone. It'll send itself once you're back in range."
+              : "Saved."}
+          </FormMessage>
         ) : null}
 
         <Button
