@@ -25,3 +25,7 @@ export * from "./xero-connections";
 export * from "./invoices";
 export * from "./invoice-payments";
 export * from "./commission-entries";
+export * from "./platform-xero-connection";
+export * from "./platform-invoices";
+export * from "./max-hours-entries";
+export * from "./onboarding-steps";
