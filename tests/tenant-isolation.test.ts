@@ -102,3 +102,162 @@ describe("tenant isolation (RLS)", () => {
     expect(ids).toEqual([rooferA.id, rooferB.id].sort());
   });
 });
+
+/**
+ * M4's tables carry a roofer's pricing and his customers' quotes and site
+ * photos — the most commercially sensitive rows in the system. CLAUDE.md
+ * requires isolation to be proven per table, not assumed from the shared
+ * policy helper, so every one of them is exercised here.
+ */
+describe("tenant isolation covers M4's quote tables", () => {
+  /** One full chain of M4 rows for a tenant, inserted with the RLS-bypassing owner role. */
+  async function makeQuoteChain(businessName: string) {
+    const tenant = await makeTenant(ownerDb, businessName);
+    const slug = businessName.toLowerCase().replace(/\s+/g, "-");
+
+    const [customer] = await ownerDb
+      .insert(schema.customers)
+      .values({ tenantId: tenant.id, name: `${businessName} Customer`, email: `${slug}@example.com` })
+      .returning();
+    const [property] = await ownerDb
+      .insert(schema.properties)
+      .values({ tenantId: tenant.id, customerId: customer.id, address: `1 ${businessName} Road` })
+      .returning();
+    const [lead] = await ownerDb
+      .insert(schema.leads)
+      .values({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        propertyId: property.id,
+        source: "roofer_own",
+        bookingToken: `booking-${slug}`,
+      })
+      .returning();
+    const [visit] = await ownerDb
+      .insert(schema.visits)
+      .values({
+        tenantId: tenant.id,
+        leadId: lead.id,
+        startAt: new Date("2026-10-06T21:00:00Z"),
+        endAt: new Date("2026-10-06T21:45:00Z"),
+      })
+      .returning();
+    const [priceBookItem] = await ownerDb
+      .insert(schema.priceBookItems)
+      .values({ tenantId: tenant.id, name: "Roof painting", kind: "per_m2", unitPriceCents: 4_850 })
+      .returning();
+    const [quote] = await ownerDb
+      .insert(schema.quotes)
+      .values({
+        tenantId: tenant.id,
+        leadId: lead.id,
+        customerId: customer.id,
+        propertyId: property.id,
+        visitId: visit.id,
+        quoteToken: `quote-${slug}`,
+        subtotalExGstCents: 60_625,
+        gstCents: 9_094,
+        totalIncGstCents: 69_719,
+      })
+      .returning();
+    const [quoteLine] = await ownerDb
+      .insert(schema.quoteLines)
+      .values({
+        tenantId: tenant.id,
+        quoteId: quote.id,
+        description: "Roof painting",
+        kind: "per_m2",
+        quantityThousandths: 12_500,
+        unitPriceCents: 4_850,
+        lineTotalExGstCents: 60_625,
+      })
+      .returning();
+    const [visitPhoto] = await ownerDb
+      .insert(schema.visitPhotos)
+      .values({
+        tenantId: tenant.id,
+        visitId: visit.id,
+        clientPhotoId: crypto.randomUUID(),
+        storageKey: `tenants/${tenant.id}/visits/${visit.id}/photo.jpg`,
+        contentType: "image/jpeg",
+        byteSize: 1_024,
+      })
+      .returning();
+    const [job] = await ownerDb
+      .insert(schema.jobs)
+      .values({
+        tenantId: tenant.id,
+        quoteId: quote.id,
+        leadId: lead.id,
+        customerId: customer.id,
+        propertyId: property.id,
+      })
+      .returning();
+
+    return { tenant, priceBookItem, quote, quoteLine, visitPhoto, job };
+  }
+
+  const tables = [
+    { name: "price_book_items", table: schema.priceBookItems, pick: (c: QuoteChain) => c.priceBookItem.id },
+    { name: "quotes", table: schema.quotes, pick: (c: QuoteChain) => c.quote.id },
+    { name: "quote_lines", table: schema.quoteLines, pick: (c: QuoteChain) => c.quoteLine.id },
+    { name: "visit_photos", table: schema.visitPhotos, pick: (c: QuoteChain) => c.visitPhoto.id },
+    { name: "jobs", table: schema.jobs, pick: (c: QuoteChain) => c.job.id },
+  ] as const;
+
+  type QuoteChain = Awaited<ReturnType<typeof makeQuoteChain>>;
+
+  for (const { name, table, pick } of tables) {
+    test(`a roofer reads only his own rows from ${name}`, async () => {
+      const mine = await makeQuoteChain("Isolation Mine");
+      const theirs = await makeQuoteChain("Isolation Theirs");
+
+      const rows = await withRooferTenantContext(mine.tenant.id, (tx) => tx.select().from(table));
+      const ids = rows.map((r) => r.id);
+
+      expect(ids).toEqual([pick(mine)]);
+      expect(ids).not.toContain(pick(theirs));
+    });
+
+    test(`a roofer cannot delete another tenant's ${name} row, even by primary key`, async () => {
+      const mine = await makeQuoteChain("Isolation Deleter");
+      const theirs = await makeQuoteChain("Isolation Victim");
+      const victimId = pick(theirs);
+
+      const deleted = await withRooferTenantContext(mine.tenant.id, (tx) =>
+        tx.delete(table).where(eq(table.id, victimId)).returning(),
+      );
+
+      expect(deleted).toHaveLength(0);
+      const stillThere = await ownerDb.select().from(table).where(eq(table.id, victimId));
+      expect(stillThere).toHaveLength(1);
+    });
+  }
+
+  test("Juno staff can read quotes across tenants, which M7's admin console needs", async () => {
+    const mine = await makeQuoteChain("Isolation Staff A");
+    const theirs = await makeQuoteChain("Isolation Staff B");
+
+    const rows = await withStaffTenantContext(mine.tenant.id, (tx) => tx.select().from(schema.quotes));
+
+    expect(rows.map((r) => r.id).sort()).toEqual([mine.quote.id, theirs.quote.id].sort());
+  });
+
+  test("the public quote-token lookup role can resolve a token but cannot read quote lines", async () => {
+    const { quote } = await makeQuoteChain("Isolation Token Co");
+
+    // ridge_auth is the pre-authentication role the public /quote/[token]
+    // page uses to find out which tenant a token belongs to. It is granted
+    // SELECT on quotes alone — everything else must go through a tenant
+    // context once the tenant is known.
+    const authSql = postgres(process.env.DATABASE_AUTH_URL!, { max: 1 });
+    try {
+      const found = await authSql`select id from quotes where quote_token = ${quote.quoteToken}`;
+      expect(found.map((r) => r.id)).toEqual([quote.id]);
+
+      await expect(authSql`select * from quote_lines`).rejects.toThrow(/permission denied/i);
+    } finally {
+      await authSql.end();
+    }
+  });
+});

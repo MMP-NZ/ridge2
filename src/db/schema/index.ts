@@ -14,3 +14,8 @@ export * from "./meta-connections";
 export * from "./meta-lead-deliveries";
 export * from "./ad-balances";
 export * from "./ad-balance-entries";
+export * from "./price-book-items";
+export * from "./quotes";
+export * from "./quote-lines";
+export * from "./visit-photos";
+export * from "./jobs";
