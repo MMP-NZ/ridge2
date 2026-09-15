@@ -1,19 +1,29 @@
-import Link from "next/link";
 import { getCurrentRooferSession } from "@/lib/auth/current-session";
 import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { calendarRules as calendarRulesTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { listVisits, mapsSearchUrl } from "@/lib/booking/queries";
-import { toNzParts, formatNzDate, formatNzDateTime } from "@/lib/time";
-
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import { toNzParts } from "@/lib/time";
+import { AlertIcon, PinIcon, SettingsIcon } from "@/components/icons";
+import {
+  Badge,
+  Card,
+  LinkButton,
+  PageHeader,
+  Screen,
+  formatNzDayLabel,
+  formatNzTime,
+} from "@/components/ui";
 
 export default async function CalendarPage() {
   const session = await getCurrentRooferSession();
   if (!session) return null; // layout already redirects
 
   const rules = await withRooferAccess(session.tenantId, (tx) =>
-    tx.select().from(calendarRulesTable).where(eq(calendarRulesTable.tenantId, session.tenantId)),
+    tx
+      .select()
+      .from(calendarRulesTable)
+      .where(eq(calendarRulesTable.tenantId, session.tenantId)),
   ).then((rows) => rows[0] ?? null);
 
   const now = new Date();
@@ -40,57 +50,106 @@ export default async function CalendarPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Calendar</h1>
-        <Link href="/calendar/settings" className="text-sm text-accent underline">
-          Settings
-        </Link>
-      </div>
+    <Screen>
+      <PageHeader
+        title="Calendar"
+        description="The next fortnight. Quote days are when customers can book you in."
+        action={
+          <LinkButton
+            href="/calendar/settings"
+            variant="secondary"
+            size="sm"
+            icon={<SettingsIcon className="h-4 w-4" />}
+          >
+            Settings
+          </LinkButton>
+        }
+      />
 
       {!rules ? (
-        <div className="rounded-xl border border-border bg-surface p-4 text-sm text-muted">
-          Set your quote days in{" "}
-          <Link href="/calendar/settings" className="text-accent underline">
-            Settings
-          </Link>{" "}
-          before customers can self-book.
-        </div>
+        <Card tone="danger" className="flex flex-col gap-3">
+          <div className="flex items-start gap-2.5">
+            <AlertIcon
+              className="mt-0.5 h-5 w-5 shrink-0 text-danger"
+              strokeWidth={2}
+            />
+            <p className="min-w-0 text-body text-foreground">
+              You haven&apos;t set your quote days yet — until you do, customers
+              can&apos;t book themselves in.
+            </p>
+          </div>
+          <LinkButton href="/calendar/settings" variant="secondary" block>
+            Set your quote days
+          </LinkButton>
+        </Card>
       ) : null}
 
-      <div className="flex flex-col gap-3">
-        {days.map(({ date, key, isQuoteDay }) => {
+      <div className="flex flex-col gap-2.5">
+        {days.map(({ date, key, isQuoteDay }, index) => {
           const dayVisits = visitsByDay.get(key) ?? [];
-          const parts = toNzParts(date);
+          const busy = dayVisits.length > 0;
           return (
-            <section key={key} className="rounded-xl border border-border bg-surface p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">
-                  {WEEKDAY_LABELS[parts.weekday]} {formatNzDate(date)}
-                </span>
-                <span className={`rounded-full px-2 py-0.5 text-xs ${isQuoteDay ? "bg-accent text-white" : "bg-background text-muted"}`}>
+            <Card
+              key={key}
+              as="section"
+              padding="none"
+              tone={isQuoteDay ? "accent" : "default"}
+              className={busy ? "shadow-card" : undefined}
+            >
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <span className="text-title font-semibold tracking-[-0.01em]">
+                    {index === 0 ? "Today" : formatNzDayLabel(date)}
+                  </span>
+                  {index === 0 ? (
+                    <span className="text-caption text-muted">
+                      {formatNzDayLabel(date)}
+                    </span>
+                  ) : null}
+                </div>
+                <Badge tone={isQuoteDay ? "accent" : "outline"}>
                   {isQuoteDay ? "Quote day" : "Work day"}
-                </span>
+                </Badge>
               </div>
-              {dayVisits.length > 0 ? (
-                <ul className="mt-2 flex flex-col gap-1.5">
+
+              {busy ? (
+                <ul className="flex flex-col divide-y divide-border border-t border-border">
                   {dayVisits.map((visit) => (
-                    <li key={visit.id} className="text-sm">
-                      <span className="text-muted">{formatNzDateTime(visit.startAt).split(", ").pop()}</span>{" "}
-                      {visit.customerName} —{" "}
-                      <a href={mapsSearchUrl(visit.propertyAddress)} className="text-accent underline" target="_blank" rel="noreferrer">
-                        {visit.propertyAddress}
-                      </a>
+                    <li
+                      key={visit.id}
+                      className="flex items-start gap-3 px-4 py-3"
+                    >
+                      <span className="w-16 shrink-0 text-caption font-bold tabular-nums text-muted">
+                        {formatNzTime(visit.startAt)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-body font-semibold">
+                          {visit.customerName}
+                        </span>
+                        <a
+                          href={mapsSearchUrl(visit.propertyAddress)}
+                          className="mt-0.5 inline-flex items-start gap-1.5 text-caption text-accent underline decoration-accent/35 underline-offset-2"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <PinIcon className="mt-px h-3.5 w-3.5 shrink-0" />
+                          <span className="min-w-0">
+                            {visit.propertyAddress}
+                          </span>
+                        </a>
+                      </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-sm text-muted">No visits</p>
+                <p className="border-t border-border px-4 py-2.5 text-caption text-muted">
+                  {isQuoteDay ? "Open for bookings" : "Nothing booked"}
+                </p>
               )}
-            </section>
+            </Card>
           );
         })}
       </div>
-    </main>
+    </Screen>
   );
 }

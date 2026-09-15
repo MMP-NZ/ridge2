@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Leads, quotes, jobs and invoicing for one-man-band roofers — run from your phone.",
     start_url: "/today",
     display: "standalone",
-    background_color: "#f7f7f5",
-    theme_color: "#1f7a3f",
+    background_color: "#f2f4f1",
+    theme_color: "#16703a",
     icons: [
       { src: "/pwa-icon-192", sizes: "192x192", type: "image/png" },
       { src: "/pwa-icon-512", sizes: "512x512", type: "image/png" },

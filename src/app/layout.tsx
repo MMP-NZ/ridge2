@@ -15,14 +15,22 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: PRODUCT_NAME,
-  description: "Leads, quotes, jobs and invoicing for one-man-band roofers — run from your phone.",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: PRODUCT_NAME },
+  description:
+    "Leads, quotes, jobs and invoicing for one-man-band roofers — run from your phone.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: PRODUCT_NAME,
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1f7a3f",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f2f4f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e110f" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -31,7 +39,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en-NZ"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        {children}
+      </body>
     </html>
   );
 }

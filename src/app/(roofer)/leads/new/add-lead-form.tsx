@@ -1,83 +1,91 @@
 "use client";
 
 import { useActionState } from "react";
+import {
+  Button,
+  Card,
+  Field,
+  FormMessage,
+  SelectInput,
+  TextInput,
+} from "@/components/ui";
 import { addLeadAction, type AddLeadState } from "../actions";
 
 const initialState: AddLeadState = {};
 
 export function AddLeadForm() {
-  const [state, formAction, pending] = useActionState(addLeadAction, initialState);
+  const [state, formAction, pending] = useActionState(
+    addLeadAction,
+    initialState,
+  );
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="name" className="text-sm font-medium">
-          Name
-        </label>
-        <input id="name" name="name" required className="rounded-lg border border-border bg-surface px-3 py-2.5 text-base" />
-      </div>
+      <Card className="flex flex-col gap-4">
+        <Field label="Name" htmlFor="name">
+          <TextInput
+            id="name"
+            name="name"
+            required
+            autoComplete="name"
+            placeholder="Sarah Whitfield"
+          />
+        </Field>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="phone" className="text-sm font-medium">
-          Phone
-        </label>
-        <input
-          id="phone"
-          name="phone"
-          type="tel"
-          className="rounded-lg border border-border bg-surface px-3 py-2.5 text-base"
-        />
-      </div>
+        <Field label="Phone" htmlFor="phone">
+          <TextInput
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="021 555 0134"
+          />
+        </Field>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          className="rounded-lg border border-border bg-surface px-3 py-2.5 text-base"
-        />
-      </div>
+        <Field
+          label="Email"
+          htmlFor="email"
+          help="Enter a phone or an email (or both)."
+        >
+          <TextInput
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="sarah@example.co.nz"
+          />
+        </Field>
 
-      <p className="-mt-2 text-xs text-muted">Enter a phone or an email (or both).</p>
+        <Field label="Property address" htmlFor="address">
+          <TextInput
+            id="address"
+            name="address"
+            required
+            placeholder="14 Kowhai Street, Papanui"
+          />
+        </Field>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="address" className="text-sm font-medium">
-          Property address
-        </label>
-        <input
-          id="address"
-          name="address"
-          required
-          className="rounded-lg border border-border bg-surface px-3 py-2.5 text-base"
-        />
-      </div>
+        <Field label="Where did this come from?" htmlFor="source">
+          <SelectInput id="source" name="source" defaultValue="roofer_own">
+            <option value="roofer_own">
+              My own (word of mouth, repeat customer)
+            </option>
+            <option value="juno_referral">A referral</option>
+          </SelectInput>
+        </Field>
+      </Card>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="source" className="text-sm font-medium">
-          Where did this come from?
-        </label>
-        <select id="source" name="source" defaultValue="roofer_own" className="rounded-lg border border-border bg-surface px-3 py-2.5 text-base">
-          <option value="roofer_own">My own (word of mouth, repeat customer)</option>
-          <option value="juno_referral">A referral</option>
-        </select>
-      </div>
+      {state.error ? <FormMessage>{state.error}</FormMessage> : null}
 
-      {state.error ? (
-        <p role="alert" className="text-sm text-danger">
-          {state.error}
-        </p>
-      ) : null}
-
-      <button
+      <Button
         type="submit"
-        disabled={pending}
-        className="mt-2 rounded-lg bg-accent px-4 py-3 text-base font-medium text-white disabled:opacity-60"
+        size="lg"
+        block
+        pending={pending}
+        pendingLabel="Adding…"
       >
-        {pending ? "Adding…" : "Add lead"}
-      </button>
+        Add lead
+      </Button>
     </form>
   );
 }
