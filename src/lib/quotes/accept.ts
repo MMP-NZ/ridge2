@@ -60,6 +60,9 @@ export async function acceptQuote(
       leadId: accepted.leadId,
       customerId: accepted.customerId,
       propertyId: accepted.propertyId,
+      // Carried across from the quote so the ready-to-schedule list knows
+      // how many days to book in without asking him again (M5).
+      estimatedDays: accepted.estimatedDays,
     })
     .returning();
 

@@ -1,4 +1,4 @@
-import { pgTable, uuid, timestamp, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, integer, text, timestamp, pgEnum, index } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 import { quotes } from "./quotes";
 import { leads } from "./leads";
@@ -39,6 +39,14 @@ export const jobs = pgTable(
       .references(() => properties.id, { onDelete: "cascade" }),
 
     status: jobStatusEnum("status").notNull().default("ready_to_schedule"),
+
+    // Copied from the quote at acceptance — the roofer sets it while
+    // building the quote, so the ready-to-schedule list already knows how
+    // many days to book in without asking him again.
+    estimatedDays: integer("estimated_days").notNull().default(1),
+
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completionNotes: text("completion_notes"),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

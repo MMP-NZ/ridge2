@@ -3,7 +3,8 @@ config({ path: ".env.local" });
 config();
 
 import { getQueue } from "@/lib/queue";
-import { JOB_NAMES, type LeadJobPayload, type VisitJobPayload, type QuoteJobPayload } from "@/lib/jobs/queue-names";
+import { JOB_NAMES, type LeadJobPayload, type VisitJobPayload, type QuoteJobPayload,
+  type WorkJobPayload } from "@/lib/jobs/queue-names";
 import {
   handleSendBookingLink,
   handleNoBookingNudge4h,
@@ -14,6 +15,9 @@ import {
   handleSendQuote,
   handleQuoteFollowUp3d,
   handleQuoteFollowUp7d,
+  handleSendJobConfirmation,
+  handleSendJobMoved,
+  handleSendJobReminder,
 } from "@/lib/jobs/handlers";
 
 /**
@@ -47,6 +51,15 @@ async function main() {
   );
   await boss.work<QuoteJobPayload>(JOB_NAMES.QUOTE_FOLLOW_UP_7D, (jobs) =>
     Promise.all(jobs.map((job) => handleQuoteFollowUp7d(job.data))),
+  );
+  await boss.work<WorkJobPayload>(JOB_NAMES.SEND_JOB_CONFIRMATION, (jobs) =>
+    Promise.all(jobs.map((job) => handleSendJobConfirmation(job.data))),
+  );
+  await boss.work<WorkJobPayload>(JOB_NAMES.SEND_JOB_MOVED, (jobs) =>
+    Promise.all(jobs.map((job) => handleSendJobMoved(job.data))),
+  );
+  await boss.work<WorkJobPayload>(JOB_NAMES.SEND_JOB_REMINDER, (jobs) =>
+    Promise.all(jobs.map((job) => handleSendJobReminder(job.data))),
   );
 
   console.log("Worker started, listening on:", Object.values(JOB_NAMES).join(", "));

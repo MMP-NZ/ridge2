@@ -9,6 +9,9 @@ export const JOB_NAMES = {
   SEND_QUOTE: "send-quote",
   QUOTE_FOLLOW_UP_3D: "quote-follow-up-3d",
   QUOTE_FOLLOW_UP_7D: "quote-follow-up-7d",
+  SEND_JOB_CONFIRMATION: "send-job-confirmation",
+  SEND_JOB_MOVED: "send-job-moved",
+  SEND_JOB_REMINDER: "send-job-reminder",
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];
@@ -26,4 +29,16 @@ export interface VisitJobPayload {
 export interface QuoteJobPayload {
   tenantId: string;
   quoteId: string;
+}
+
+export interface WorkJobPayload {
+  tenantId: string;
+  jobId: string;
+  /**
+   * The first work day this message is about, as YYYY-MM-DD. The reminder
+   * handler compares it against the job's current first day and no-ops if
+   * they differ — that's what stops a reminder firing for a date the job
+   * has since been moved off, without needing job cancellation.
+   */
+  forDate: string;
 }

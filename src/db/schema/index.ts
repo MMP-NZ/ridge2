@@ -19,3 +19,5 @@ export * from "./quotes";
 export * from "./quote-lines";
 export * from "./visit-photos";
 export * from "./jobs";
+export * from "./job-days";
+export * from "./job-photos";

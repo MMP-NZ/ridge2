@@ -69,6 +69,11 @@ export const quotes = pgTable(
     notes: text("notes"),
     validUntil: timestamp("valid_until", { withTimezone: true }),
 
+    // How many work days the job will take. Set while building the quote —
+    // he's the one who knows whether a re-roof is three days or five — and
+    // copied onto the job at acceptance so scheduling doesn't ask again.
+    estimatedDays: integer("estimated_days").notNull().default(1),
+
     sentAt: timestamp("sent_at", { withTimezone: true }),
 
     // Acceptance evidence: the customer types their full name to accept, and
