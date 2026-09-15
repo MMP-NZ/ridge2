@@ -22,3 +22,16 @@ export function followUpScheduleFor(createdAt: Date): FollowUpSchedule {
 export function needsCallCutoff(now: Date): Date {
   return new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 }
+
+/** Build-plan M4: "Quote follow-ups at 3 and 7 days if not accepted", measured from when the quote was sent. */
+export interface QuoteFollowUpSchedule {
+  followUp3d: Date;
+  followUp7d: Date;
+}
+
+export function quoteFollowUpScheduleFor(sentAt: Date): QuoteFollowUpSchedule {
+  return {
+    followUp3d: new Date(sentAt.getTime() + 3 * 24 * 60 * 60 * 1000),
+    followUp7d: new Date(sentAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+  };
+}

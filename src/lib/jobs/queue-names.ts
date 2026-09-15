@@ -6,6 +6,9 @@ export const JOB_NAMES = {
   MARK_COLD_7D: "mark-cold-7d",
   SEND_VISIT_CONFIRMATION: "send-visit-confirmation",
   SEND_VISIT_REMINDER: "send-visit-reminder",
+  SEND_QUOTE: "send-quote",
+  QUOTE_FOLLOW_UP_3D: "quote-follow-up-3d",
+  QUOTE_FOLLOW_UP_7D: "quote-follow-up-7d",
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];
@@ -18,4 +21,9 @@ export interface LeadJobPayload {
 export interface VisitJobPayload {
   tenantId: string;
   visitId: string;
+}
+
+export interface QuoteJobPayload {
+  tenantId: string;
+  quoteId: string;
 }

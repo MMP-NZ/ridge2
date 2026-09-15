@@ -3,7 +3,7 @@ config({ path: ".env.local" });
 config();
 
 import { getQueue } from "@/lib/queue";
-import { JOB_NAMES, type LeadJobPayload, type VisitJobPayload } from "@/lib/jobs/queue-names";
+import { JOB_NAMES, type LeadJobPayload, type VisitJobPayload, type QuoteJobPayload } from "@/lib/jobs/queue-names";
 import {
   handleSendBookingLink,
   handleNoBookingNudge4h,
@@ -11,6 +11,9 @@ import {
   handleMarkCold7d,
   handleSendVisitConfirmation,
   handleSendVisitReminder,
+  handleSendQuote,
+  handleQuoteFollowUp3d,
+  handleQuoteFollowUp7d,
 } from "@/lib/jobs/handlers";
 
 /**
@@ -37,6 +40,13 @@ async function main() {
   );
   await boss.work<VisitJobPayload>(JOB_NAMES.SEND_VISIT_REMINDER, (jobs) =>
     Promise.all(jobs.map((job) => handleSendVisitReminder(job.data))),
+  );
+  await boss.work<QuoteJobPayload>(JOB_NAMES.SEND_QUOTE, (jobs) => Promise.all(jobs.map((job) => handleSendQuote(job.data))));
+  await boss.work<QuoteJobPayload>(JOB_NAMES.QUOTE_FOLLOW_UP_3D, (jobs) =>
+    Promise.all(jobs.map((job) => handleQuoteFollowUp3d(job.data))),
+  );
+  await boss.work<QuoteJobPayload>(JOB_NAMES.QUOTE_FOLLOW_UP_7D, (jobs) =>
+    Promise.all(jobs.map((job) => handleQuoteFollowUp7d(job.data))),
   );
 
   console.log("Worker started, listening on:", Object.values(JOB_NAMES).join(", "));

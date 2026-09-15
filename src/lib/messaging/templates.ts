@@ -35,6 +35,40 @@ export function noBookingNudge4hMessage(businessName: string, bookingToken: stri
   };
 }
 
+/**
+ * Quote messages are transactional under the Unsolicited Electronic
+ * Messages Act — they're the reply to an enquiry the customer made and a
+ * visit they booked — so they go through sendTransactional and need no
+ * consent flag (CLAUDE.md messaging rules).
+ */
+export function quoteSentMessage(
+  businessName: string,
+  quoteToken: string,
+  totalIncGst: string,
+): { subject: string; body: string } {
+  const url = `${baseUrl()}/quote/${quoteToken}`;
+  return {
+    subject: `${businessName}: your roofing quote`,
+    body: `${businessName} here — your quote is ready: ${totalIncGst} including GST. Have a look and accept online: ${url}`,
+  };
+}
+
+export function quoteFollowUp3dMessage(businessName: string, quoteToken: string): { subject: string; body: string } {
+  const url = `${baseUrl()}/quote/${quoteToken}`;
+  return {
+    subject: `${businessName}: any questions about your quote?`,
+    body: `${businessName} here — any questions about your quote? Happy to talk it through. ${url}`,
+  };
+}
+
+export function quoteFollowUp7dMessage(businessName: string, quoteToken: string): { subject: string; body: string } {
+  const url = `${baseUrl()}/quote/${quoteToken}`;
+  return {
+    subject: `${businessName}: still thinking about your roof?`,
+    body: `${businessName} here — still thinking it over? Your quote is here when you're ready: ${url}`,
+  };
+}
+
 export function noBookingNudge2dMessage(businessName: string, bookingToken: string): { subject: string; body: string } {
   const url = `${baseUrl()}/book/${bookingToken}`;
   return {
