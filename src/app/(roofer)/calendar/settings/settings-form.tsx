@@ -47,7 +47,7 @@ export function CalendarSettingsForm({ existing }: { existing: CalendarRules | n
       </fieldset>
 
       <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="startTime" className="text-sm font-medium">
             Start
           </label>
@@ -59,7 +59,7 @@ export function CalendarSettingsForm({ existing }: { existing: CalendarRules | n
             className="rounded-lg border border-border bg-surface px-3 py-2.5 text-base"
           />
         </div>
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="endTime" className="text-sm font-medium">
             End
           </label>
@@ -74,7 +74,7 @@ export function CalendarSettingsForm({ existing }: { existing: CalendarRules | n
       </div>
 
       <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="visitLength" className="text-sm font-medium">
             Visit length (min)
           </label>
@@ -87,7 +87,7 @@ export function CalendarSettingsForm({ existing }: { existing: CalendarRules | n
             className="rounded-lg border border-border bg-surface px-3 py-2.5 text-base"
           />
         </div>
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor="travelBuffer" className="text-sm font-medium">
             Travel buffer (min)
           </label>

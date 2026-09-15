@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth/password";
 import { generateIntakeKey } from "@/lib/crm/intake";
+import { DEFAULT_PRICE_BOOK } from "@/lib/price-book/items";
 
 /**
  * One fictional demo tenant, per CLAUDE.md's build-plan M0 requirement and
@@ -51,6 +52,12 @@ async function main() {
       visitLengthMinutes: 45,
       travelBufferMinutes: 15,
     });
+
+    // The standard price book, so a quote can be built the moment the demo
+    // roofer finishes a site visit (M4).
+    await db
+      .insert(schema.priceBookItems)
+      .values(DEFAULT_PRICE_BOOK.map((item, index) => ({ ...item, tenantId: tenant.id, sortOrder: index })));
 
     console.log(`Seeded demo tenant ${tenant.id} (${tenant.businessName})`);
     console.log("Demo roofer login: demo.roofer@example.com / demo-password-not-for-real-use");
