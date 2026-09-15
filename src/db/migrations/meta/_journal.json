@@ -85,6 +85,20 @@
       "when": 1789469224972,
       "tag": "0011_jobs_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789471352129,
+      "tag": "0012_rapid_sprite",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789471352130,
+      "tag": "0013_xero_rls",
+      "breakpoints": true
     }
   ]
 }
