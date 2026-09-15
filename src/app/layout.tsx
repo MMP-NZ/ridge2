@@ -33,7 +33,13 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+/**
+ * Props are typed explicitly rather than with Next's generated
+ * `LayoutProps<"/">`. That global only exists in `.next/types`, which is
+ * written by a build — so `pnpm typecheck` on a clean checkout couldn't
+ * resolve it, and CI failed at typecheck before ever reaching the tests.
+ */
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en-NZ"
