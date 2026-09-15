@@ -194,6 +194,7 @@ Build these only once the MVP is in real use. Order them from pilot feedback.
 - Deposits on quote acceptance
 - Upgrade prompt: Basic roofers whose quote days keep filling up
 - Automatic campaign pause at zero ad balance
+- Automatic site measuring: address in, aerial image with the roof outline drawn on it and an indicative area out, saved against the property as a starting point the roofer verifies on site. Built on LINZ open data — see `docs/decisions.md` (15 Sep 2026)
 
 **P3**
 
