@@ -136,6 +136,42 @@ describe("capturing a site visit", () => {
     expect(corrected.visit.areaM2).toBeCloseTo(151);
   });
 
+  test("a visit saved with nothing filled in still saves", async () => {
+    // He taps Save before typing anything, or writes only a note. Updating
+    // the property with an all-undefined set throws "No values to set" in
+    // drizzle, which used to take the whole capture down with it.
+    const { tenant, lead, visit } = await makeBookedVisit("Blank Capture Co");
+
+    const result = await withRooferTenantContext(tenant.id, (tx) =>
+      captureVisit(tx, tenant.id, visit.id, { clientCaptureId: crypto.randomUUID() }, { type: "roofer" }),
+    );
+
+    expect(result.applied).toBe(true);
+    expect(result.visit.status).toBe("completed");
+
+    const [updatedLead] = await ownerDb.select().from(schema.leads).where(eq(schema.leads.id, lead.id));
+    expect(updatedLead.stage).toBe("visited");
+  });
+
+  test("a note-only capture leaves the property's roof details alone", async () => {
+    const { tenant, propertyId, visit } = await makeBookedVisit("Notes Only Co");
+    await ownerDb.update(schema.properties).set({ roofType: "Gable" }).where(eq(schema.properties.id, propertyId));
+
+    await withRooferTenantContext(tenant.id, (tx) =>
+      captureVisit(
+        tx,
+        tenant.id,
+        visit.id,
+        { clientCaptureId: crypto.randomUUID(), siteNotes: "Couldn't get on the roof — dog." },
+        { type: "roofer" },
+      ),
+    );
+
+    // What he measured last time isn't wiped by a visit where he measured nothing.
+    const [property] = await ownerDb.select().from(schema.properties).where(eq(schema.properties.id, propertyId));
+    expect(property.roofType).toBe("Gable");
+  });
+
   test("a roofer can't capture against another roofer's visit", async () => {
     const mine = await makeBookedVisit("Capture Mine");
     const theirs = await makeBookedVisit("Capture Theirs");

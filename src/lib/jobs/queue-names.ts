@@ -12,6 +12,9 @@ export const JOB_NAMES = {
   SEND_JOB_CONFIRMATION: "send-job-confirmation",
   SEND_JOB_MOVED: "send-job-moved",
   SEND_JOB_REMINDER: "send-job-reminder",
+  PUSH_INVOICE: "push-invoice",
+  SYNC_XERO: "sync-xero",
+  INVOICE_OVERDUE: "invoice-overdue",
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];
@@ -29,6 +32,22 @@ export interface VisitJobPayload {
 export interface QuoteJobPayload {
   tenantId: string;
   quoteId: string;
+}
+
+export interface InvoiceJobPayload {
+  tenantId: string;
+  jobId: string;
+}
+
+export interface SyncJobPayload {
+  tenantId: string;
+}
+
+export interface OverdueJobPayload {
+  tenantId: string;
+  invoiceId: string;
+  /** 7, 14 or 21 — which reminder in the sequence this is. */
+  daysOverdue: number;
 }
 
 export interface WorkJobPayload {

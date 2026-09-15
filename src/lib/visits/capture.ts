@@ -73,15 +73,22 @@ export async function captureVisit(
     .where(and(eq(leads.tenantId, tenantId), eq(leads.id, updated.leadId)));
 
   if (lead) {
-    await tx
-      .update(properties)
-      .set({
-        roofType: input.roofType,
-        material: input.material,
-        pitchDegrees: input.pitchDegrees,
-        areaM2: input.areaM2,
-      })
-      .where(and(eq(properties.tenantId, tenantId), eq(properties.id, lead.propertyId)));
+    // Only touch the property when he actually recorded something about the
+    // roof. A visit saved with just notes — or nothing but a tap on Save —
+    // is perfectly normal, and drizzle throws "No values to set" on an
+    // update whose every value is undefined.
+    const roofDetails = {
+      roofType: input.roofType,
+      material: input.material,
+      pitchDegrees: input.pitchDegrees,
+      areaM2: input.areaM2,
+    };
+    if (Object.values(roofDetails).some((value) => value !== undefined)) {
+      await tx
+        .update(properties)
+        .set(roofDetails)
+        .where(and(eq(properties.tenantId, tenantId), eq(properties.id, lead.propertyId)));
+    }
 
     await advanceLeadStageTo(tx, tenantId, lead.id, "visited", actor);
   }

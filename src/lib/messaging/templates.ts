@@ -110,6 +110,38 @@ export function jobMovedMessage(businessName: string, days: string[]): { subject
   };
 }
 
+/**
+ * Overdue invoice reminders (build-plan M6: 7, 14 and 21 days).
+ * Transactional — an account message about work already done, so no
+ * consent gate. The tone escalates, but never past "firm and polite": the
+ * roofer has to live in the same town as this customer.
+ */
+export function invoiceOverdueMessage(
+  businessName: string,
+  invoiceNumber: string | null,
+  amountOwing: string,
+  daysOverdue: number,
+): { subject: string; body: string } {
+  const reference = invoiceNumber ? `invoice ${invoiceNumber}` : "your invoice";
+
+  if (daysOverdue >= 21) {
+    return {
+      subject: `${businessName}: ${reference} is three weeks overdue`,
+      body: `${businessName} here — ${reference} for ${amountOwing} is now three weeks overdue. Could you let us know when it'll be paid, or give us a call if there's a problem?`,
+    };
+  }
+  if (daysOverdue >= 14) {
+    return {
+      subject: `${businessName}: ${reference} is two weeks overdue`,
+      body: `${businessName} here — ${reference} for ${amountOwing} is a couple of weeks overdue now. A quick payment would be much appreciated.`,
+    };
+  }
+  return {
+    subject: `${businessName}: a reminder about ${reference}`,
+    body: `${businessName} here — just a reminder that ${reference} for ${amountOwing} was due last week. If you've already paid it, thanks and ignore this.`,
+  };
+}
+
 export function noBookingNudge2dMessage(businessName: string, bookingToken: string): { subject: string; body: string } {
   const url = `${baseUrl()}/book/${bookingToken}`;
   return {
