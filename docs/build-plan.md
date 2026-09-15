@@ -113,9 +113,11 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] A visit captured in airplane mode syncs correctly once back online
-- [ ] Quote totals and GST are correct to the cent in tests
+- [x] A visit captured in airplane mode syncs correctly once back online
+- [x] Quote totals and GST are correct to the cent in tests
 - [ ] Accepting a quote online marks the lead `won` and creates a job
+
+> Offline was downgraded to a nice-to-have on 15 Sep 2026 (see `docs/decisions.md`). What's built here stays, but later milestones assume a connection and put the effort into functionality and interface instead.
 
 ---
 
