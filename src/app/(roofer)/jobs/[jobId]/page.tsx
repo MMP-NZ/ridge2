@@ -4,6 +4,9 @@ import { getCurrentRooferSession } from "@/lib/auth/current-session";
 import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { calendarRules as calendarRulesTable } from "@/db/schema";
 import { getJobSummary, takenWorkDates, listJobPhotos } from "@/lib/scheduling/jobs";
+import { getConnection } from "@/lib/xero/connection";
+import { invoices } from "@/db/schema";
+import { and } from "drizzle-orm";
 import { suggestWorkDays, toWorkDate } from "@/lib/scheduling/work-days";
 import { mapsSearchUrl } from "@/lib/booking/queries";
 import { formatNzd } from "@/lib/money";
@@ -11,6 +14,7 @@ import { formatNzDate } from "@/lib/time";
 import { PinIcon } from "@/components/icons";
 import { Badge, Card, CardTitle, LinkButton, PageHeader, Screen } from "@/components/ui";
 import { JobScheduler } from "./job-scheduler";
+import { InvoiceCard } from "./invoice-card";
 import { describeWorkDays } from "../format-days";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,9 +45,21 @@ export default async function JobPage({ params }: { params: Promise<{ jobId: str
       (date) => !summary.days.includes(date),
     );
 
+    const [invoice] = await tx
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.tenantId, session.tenantId), eq(invoices.jobId, jobId)));
+    const connection = await getConnection(tx, session.tenantId);
+
     return {
       summary,
       rules,
+      invoice: invoice ?? null,
+      connectionState: !connection
+        ? ("not_connected" as const)
+        : connection.needsReconnectAt
+          ? ("needs_reconnect" as const)
+          : ("connected" as const),
       photos: await listJobPhotos(tx, session.tenantId, jobId),
       suggestions: rules
         ? suggestWorkDays(rules, { takenDates: taken, estimatedDays: summary.job.estimatedDays, from: today })
@@ -52,7 +68,7 @@ export default async function JobPage({ params }: { params: Promise<{ jobId: str
   });
 
   if (!data) notFound();
-  const { summary, photos, suggestions, rules } = data;
+  const { summary, photos, suggestions, rules, invoice, connectionState } = data;
   const job = summary.job;
 
   return (
@@ -90,8 +106,25 @@ export default async function JobPage({ params }: { params: Promise<{ jobId: str
             Finished{job.completedAt ? ` ${formatNzDate(job.completedAt)}` : ""}
           </p>
           {job.completionNotes ? <p className="text-caption text-muted">{job.completionNotes}</p> : null}
-          <p className="mt-1 text-caption text-muted">Invoicing through Xero lands in the next milestone.</p>
         </Card>
+      ) : null}
+
+      {job.status === "done" ? (
+        <InvoiceCard
+          jobId={job.id}
+          connectionState={connectionState}
+          invoice={
+            invoice
+              ? {
+                  invoiceNumber: invoice.invoiceNumber,
+                  status: invoice.status,
+                  totalIncGstCents: invoice.totalIncGstCents,
+                  totalExGstCents: invoice.totalExGstCents,
+                  netPaidExGstCents: invoice.netPaidExGstCents,
+                }
+              : null
+          }
+        />
       ) : null}
 
       {!rules ? (

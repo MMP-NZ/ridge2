@@ -43,6 +43,18 @@ export default function MorePage() {
             description="Work won, booked in and finished"
           />
           <NavRow
+            href="/more/commission"
+            icon={<PriceBookIcon className="h-5 w-5" />}
+            title="Commission"
+            description="What Juno Logic has earned on your paid jobs"
+          />
+          <NavRow
+            href="/more/xero"
+            icon={<ShieldIcon className="h-5 w-5" />}
+            title="Xero"
+            description="Invoicing for finished jobs"
+          />
+          <NavRow
             href="/price-book"
             icon={<PriceBookIcon className="h-5 w-5" />}
             title="Price book"

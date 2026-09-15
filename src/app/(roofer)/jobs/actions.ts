@@ -7,6 +7,7 @@ import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { isUniqueViolation } from "@/db/errors";
 import { scheduleJob, completeJob, addJobPhoto } from "@/lib/scheduling/jobs";
 import { scheduleWorkJobs } from "@/lib/jobs/schedule-work-jobs";
+import { pushInvoiceForJob } from "@/lib/xero/invoicing";
 
 export interface JobActionState {
   error?: string;
@@ -96,4 +97,37 @@ export async function uploadJobPhotoAction(formData: FormData): Promise<void> {
   }
 
   revalidatePath(`/jobs/${jobId}`);
+}
+
+export interface InvoiceActionState {
+  error?: string;
+  invoiceNumber?: string;
+}
+
+/** Raises the draft invoice in the roofer's Xero for a finished job. */
+export async function pushInvoiceAction(
+  _prev: InvoiceActionState,
+  formData: FormData,
+): Promise<InvoiceActionState> {
+  const session = await getCurrentRooferSession();
+  if (!session) redirect("/login");
+
+  const jobId = String(formData.get("jobId") ?? "");
+  if (!jobId) return { error: "Job not found." };
+
+  const result = await withRooferAccess(session.tenantId, (tx) => pushInvoiceForJob(tx, session.tenantId, jobId));
+
+  revalidatePath(`/jobs/${jobId}`);
+
+  switch (result.status) {
+    case "created":
+    case "already_invoiced":
+      return { invoiceNumber: result.invoice.invoiceNumber ?? undefined };
+    case "needs_reconnect":
+      return { error: "Xero needs reconnecting first — nothing's lost, the job will be waiting." };
+    case "not_connected":
+      return { error: "Connect Xero first and this job will invoice straight away." };
+    case "job_not_done":
+      return { error: "Mark the job done before invoicing it." };
+  }
 }

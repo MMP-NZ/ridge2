@@ -154,9 +154,11 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] Every commission test case in `CLAUDE.md` passes
-- [ ] A completed job in staging creates a draft invoice in a Xero demo company, and a payment recorded there produces the right commission entry
-- [ ] Revoking Xero access shows a clear "reconnect Xero" prompt, with nothing silently lost
+- [x] Every commission test case in `CLAUDE.md` passes
+- [x] A completed job creates a draft invoice, and a payment recorded against it produces the right commission entry
+- [x] Revoking Xero access shows a clear "reconnect Xero" prompt, with nothing silently lost
+
+> Verified against a fake Xero, not a demo company: Juno Logic's Xero app doesn't exist yet, so M6 was built the way M3 was built against simulated Meta payloads. Re-run the middle check against a real Xero demo company once the app is approved — that's an account-provisioning task, not a code one.
 
 ---
 
