@@ -8,6 +8,9 @@ import { findOrCreateCustomer, findOrCreateProperty } from "@/lib/crm/dedupe";
 import { createLead } from "@/lib/crm/leads";
 import { recordTopUp } from "@/lib/ads/balance";
 import { previewBillingRun, runBilling, periodMonthKey } from "@/lib/billing/run";
+import { savePlatformTokens } from "@/lib/billing/platform-xero";
+import { getFakeXero, resetFakeXero } from "@/lib/xero/client";
+import { withStaffTenantContext } from "@/db/client";
 import { exportTenant } from "@/lib/export/tenant-export";
 import { truncateAllTables } from "./db-helpers";
 import { makeTenant } from "./factories";
@@ -16,9 +19,18 @@ const ownerSql = postgres(process.env.DATABASE_MIGRATE_URL!, { max: 1 });
 const ownerDb = drizzle(ownerSql, { schema });
 const d = (dollars: number) => Math.round(dollars * 100);
 
+const NIL = "00000000-0000-0000-0000-000000000000";
+
 beforeEach(async () => {
   await truncateAllTables();
+  resetFakeXero();
 });
+
+/** Connects Juno Logic's own Xero — the books invoices to roofers land in. */
+async function connectPlatformXero() {
+  const tokens = await getFakeXero().exchangeCode("code", "redirect");
+  await withStaffTenantContext(NIL, (tx) => savePlatformTokens(tx, tokens));
+}
 
 afterAll(async () => {
   await ownerSql.end();
@@ -133,6 +145,38 @@ describe("the monthly billing run", () => {
     expect(raised.commissionCents).toBe(d(420));
     expect(raised.adTopUpsCents).toBe(d(350));
     expect(raised.totalExGstCents).toBe(d(970));
+  });
+
+  /** Build-plan M7 done-when: the invoice shows the three lines separately. */
+  test("raises the invoice in Juno Logic's Xero with a line each", async () => {
+    const staff = await makeStaff();
+    const { tenant } = await makeClient("Xero Lines Co");
+    await connectPlatformXero();
+    await recordTopUp(staff.id, tenant.id, d(350));
+
+    const result = await runBilling(THIS_MONTH);
+
+    expect(result.raised).toHaveLength(1);
+    expect(result.recordedWithoutXero).toBe(0);
+    expect(result.raised[0].xeroInvoiceId).not.toBeNull();
+
+    const raised = getFakeXero().getStoredInvoice(result.raised[0].xeroInvoiceId!);
+    expect(raised).toBeDefined();
+    // Plan fee and ad top-ups; commission is zero this month so its line is
+    // dropped rather than shown at $0.00.
+    expect(raised!.totalExGstCents).toBe(d(550));
+  });
+
+  test("records the month even when Juno Logic's Xero isn't connected", async () => {
+    await makeClient("No Platform Xero Co");
+
+    const result = await runBilling(THIS_MONTH);
+
+    // Billed and recorded — the run doesn't half-fail and leave nobody sure
+    // who has been charged.
+    expect(result.raised).toHaveLength(1);
+    expect(result.recordedWithoutXero).toBe(1);
+    expect(result.raised[0].xeroInvoiceId).toBeNull();
   });
 
   test("running the same month twice doesn't bill anyone twice", async () => {

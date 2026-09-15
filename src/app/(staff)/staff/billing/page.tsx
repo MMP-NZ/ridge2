@@ -1,5 +1,9 @@
 import { requireStaffSession } from "@/lib/auth/current-session";
 import { previewBillingRun } from "@/lib/billing/run";
+import { getPlatformConnection } from "@/lib/billing/platform-xero";
+import { withStaffTenantContext } from "@/db/client";
+import { connectPlatformXeroAction } from "./actions";
+import { Button } from "@/components/ui";
 import { formatNzd } from "@/lib/money";
 import { Badge, Card, CardTitle, EmptyState, PageHeader, Screen, SectionHeading } from "@/components/ui";
 import { PriceBookIcon } from "@/components/icons";
@@ -11,6 +15,9 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const { month } = await searchParams;
   const selected = month ? new Date(month) : new Date();
   const rows = await previewBillingRun(selected);
+  const platformXero = await withStaffTenantContext("00000000-0000-0000-0000-000000000000", (tx) =>
+    getPlatformConnection(tx),
+  );
 
   const label = new Intl.DateTimeFormat("en-NZ", {
     month: "long",
@@ -82,6 +89,21 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               </Card>
             ))}
           </section>
+
+          {!platformXero ? (
+            <form action={connectPlatformXeroAction}>
+              <Card tone="quiet" className="flex flex-col gap-3">
+                <CardTitle>Juno Logic&apos;s Xero isn&apos;t connected</CardTitle>
+                <p className="text-caption text-muted">
+                  Invoices will still be recorded here, but nothing reaches Juno Logic&apos;s own books until this is
+                  connected. These are Juno Logic&apos;s accounts, not a roofer&apos;s.
+                </p>
+                <Button type="submit" variant="secondary" block>
+                  Connect Juno Logic&apos;s Xero
+                </Button>
+              </Card>
+            </form>
+          ) : null}
 
           <RunBillingForm month={selected.toISOString()} billableCount={billable.length} />
 

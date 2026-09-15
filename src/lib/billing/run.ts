@@ -10,6 +10,7 @@ import {
 import { withStaffTenantContext, type AppTx } from "@/db/client";
 import { isUniqueViolation } from "@/db/errors";
 import { calculateBilling, type BillingLines } from "./calculate";
+import { raisePlatformInvoice } from "./platform-xero";
 import { nzMonthRange } from "@/lib/commission/statement";
 import { toNzParts } from "@/lib/time";
 
@@ -116,6 +117,8 @@ export interface BillingRunResult {
   raised: PlatformInvoice[];
   skippedAlreadyBilled: number;
   skippedNothingOwing: number;
+  /** Recorded here but not raised in Xero, because Juno Logic's own Xero isn't connected. */
+  recordedWithoutXero: number;
 }
 
 /**
@@ -133,7 +136,12 @@ export async function runBilling(month: Date): Promise<BillingRunResult> {
   const preview = await previewBillingRun(month);
   const periodMonth = periodMonthKey(month);
 
-  const result: BillingRunResult = { raised: [], skippedAlreadyBilled: 0, skippedNothingOwing: 0 };
+  const result: BillingRunResult = {
+    raised: [],
+    skippedAlreadyBilled: 0,
+    skippedNothingOwing: 0,
+    recordedWithoutXero: 0,
+  };
 
   for (const row of preview) {
     if (row.alreadyBilled) {
@@ -158,9 +166,25 @@ export async function runBilling(month: Date): Promise<BillingRunResult> {
             totalExGstCents: row.lines.totalExGstCents,
           })
           .returning();
-        return created;
+
+        // Raised in Juno Logic's own Xero as a draft, three lines. The
+        // record above is written first and kept either way: if Xero is
+        // unreachable the month is still billed and can be pushed later,
+        // rather than the run half-failing and leaving nobody sure who has
+        // been charged.
+        const xero = await raisePlatformInvoice(tx, row.tenant, created);
+        if (!xero) return { invoice: created, raisedInXero: false };
+
+        const [withXero] = await tx
+          .update(platformInvoices)
+          .set({ xeroInvoiceId: xero.xeroInvoiceId, invoiceNumber: xero.invoiceNumber })
+          .where(eq(platformInvoices.id, created.id))
+          .returning();
+        return { invoice: withXero, raisedInXero: true };
       });
-      result.raised.push(invoice);
+
+      result.raised.push(invoice.invoice);
+      if (!invoice.raisedInXero) result.recordedWithoutXero += 1;
     } catch (err) {
       // Someone else ran the same month at the same moment.
       if (isUniqueViolation(err)) {

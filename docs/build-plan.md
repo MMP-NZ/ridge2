@@ -176,9 +176,11 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] Juno Logic's monthly invoice for a test roofer shows the plan fee, commission and ad top-ups as separate lines, correct to the cent
-- [ ] Free month and founding-price dates drive billing correctly (no fee in the free month, locked price for 24 months)
-- [ ] A roofer's data export contains his customers, properties, leads, quotes, jobs, messages and invoices
+- [x] Juno Logic's monthly invoice for a test roofer shows the plan fee, commission and ad top-ups as separate lines, correct to the cent
+- [x] Free month and founding-price dates drive billing correctly (no fee in the free month, locked price for 24 months)
+- [x] A roofer's data export contains his customers, properties, leads, quotes, jobs, messages and invoices
+
+> Built against the fake Xero, like M3's Meta and M6's roofer-facing Xero — neither Juno Logic's own Xero app nor the roofer-facing one exists yet. Everything else is real. Before the first paying roofer: create both Xero apps, register a LINZ Basemaps developer key if the site-measuring feature goes ahead, get a ClickSend NZ short code for two-way SMS, and settle the GST-registration question with the accountant.
 
 ### ✅ MVP: first paying roofer
 
