@@ -22,8 +22,12 @@ export interface QuoteLineInput {
   priceBookItemId?: string;
 }
 
-/** Quote days out; the roofer's prices move, and an open-ended quote is a liability. */
-const DEFAULT_VALID_DAYS = 30;
+/**
+ * How long a quote stands. The roofer's material prices move, and an
+ * open-ended quote is a liability — but roofing decisions are slow ones
+ * made by households, so 60 days rather than the usual 30.
+ */
+const DEFAULT_VALID_DAYS = 60;
 
 async function getQuoteOrThrow(tx: AppTx, tenantId: string, quoteId: string): Promise<Quote> {
   const [quote] = await tx
