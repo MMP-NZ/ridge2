@@ -28,8 +28,13 @@ export interface FakeXero extends XeroClient {
   readonly invoices: Map<string, XeroInvoice>;
 }
 
-let sequence = 0;
-const nextId = (prefix: string) => `${prefix}-${++sequence}`;
+/**
+ * Random, not a counter. A counter restarts at 1 in every process, and the
+ * web server and worker are separate processes that each restart on every
+ * deploy — so a counter hands out `pay-1` again and the unique constraint
+ * on invoice_payments quietly treats a new payment as one already recorded.
+ */
+const nextId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
 export function createFakeXero(): FakeXero {
   const invoices = new Map<string, XeroInvoice>();
@@ -80,7 +85,7 @@ export function createFakeXero(): FakeXero {
       const xeroInvoiceId = nextId("inv");
       const invoice: XeroInvoice = {
         xeroInvoiceId,
-        invoiceNumber: `INV-${String(sequence).padStart(4, "0")}`,
+        invoiceNumber: `INV-${xeroInvoiceId.slice(-6).toUpperCase()}`,
         status: "draft",
         totalExGstCents,
         totalIncGstCents: totalExGstCents + centsToGstCents(totalExGstCents),
