@@ -113,9 +113,11 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] A visit captured in airplane mode syncs correctly once back online
-- [ ] Quote totals and GST are correct to the cent in tests
-- [ ] Accepting a quote online marks the lead `won` and creates a job
+- [x] A visit captured in airplane mode syncs correctly once back online
+- [x] Quote totals and GST are correct to the cent in tests
+- [x] Accepting a quote online marks the lead `won` and creates a job
+
+> Offline was downgraded to a nice-to-have on 15 Sep 2026 (see `docs/decisions.md`). What's built here stays, but later milestones assume a connection and put the effort into functionality and interface instead.
 
 ---
 
@@ -131,8 +133,8 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] Suggested days never clash with quote days or existing jobs
-- [ ] Moving a job notifies the customer once, with the new dates
+- [x] Suggested days never clash with quote days or existing jobs
+- [x] Moving a job notifies the customer once, with the new dates
 
 ---
 
@@ -152,9 +154,11 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] Every commission test case in `CLAUDE.md` passes
-- [ ] A completed job in staging creates a draft invoice in a Xero demo company, and a payment recorded there produces the right commission entry
-- [ ] Revoking Xero access shows a clear "reconnect Xero" prompt, with nothing silently lost
+- [x] Every commission test case in `CLAUDE.md` passes
+- [x] A completed job creates a draft invoice, and a payment recorded against it produces the right commission entry
+- [x] Revoking Xero access shows a clear "reconnect Xero" prompt, with nothing silently lost
+
+> Verified against a fake Xero, not a demo company: Juno Logic's Xero app doesn't exist yet, so M6 was built the way M3 was built against simulated Meta payloads. Re-run the middle check against a real Xero demo company once the app is approved — that's an account-provisioning task, not a code one.
 
 ---
 
@@ -172,9 +176,11 @@ Run the free month with the pilot roofer before building further. Record what he
 
 **Done when**
 
-- [ ] Juno Logic's monthly invoice for a test roofer shows the plan fee, commission and ad top-ups as separate lines, correct to the cent
-- [ ] Free month and founding-price dates drive billing correctly (no fee in the free month, locked price for 24 months)
-- [ ] A roofer's data export contains his customers, properties, leads, quotes, jobs, messages and invoices
+- [x] Juno Logic's monthly invoice for a test roofer shows the plan fee, commission and ad top-ups as separate lines, correct to the cent
+- [x] Free month and founding-price dates drive billing correctly (no fee in the free month, locked price for 24 months)
+- [x] A roofer's data export contains his customers, properties, leads, quotes, jobs, messages and invoices
+
+> Built against the fake Xero, like M3's Meta and M6's roofer-facing Xero — neither Juno Logic's own Xero app nor the roofer-facing one exists yet. Everything else is real. Before the first paying roofer: create both Xero apps, register a LINZ Basemaps developer key if the site-measuring feature goes ahead, get a ClickSend NZ short code for two-way SMS, and settle the GST-registration question with the accountant.
 
 ### ✅ MVP: first paying roofer
 
@@ -194,6 +200,7 @@ Build these only once the MVP is in real use. Order them from pilot feedback.
 - Deposits on quote acceptance
 - Upgrade prompt: Basic roofers whose quote days keep filling up
 - Automatic campaign pause at zero ad balance
+- Automatic site measuring: address in, aerial image with the roof outline drawn on it and an indicative area out, saved against the property as a starting point the roofer verifies on site. Built on LINZ open data — see `docs/decisions.md` (15 Sep 2026)
 
 **P3**
 

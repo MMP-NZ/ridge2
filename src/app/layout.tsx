@@ -15,23 +15,39 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: PRODUCT_NAME,
-  description: "Leads, quotes, jobs and invoicing for one-man-band roofers — run from your phone.",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: PRODUCT_NAME },
+  description:
+    "Leads, quotes, jobs and invoicing for one-man-band roofers — run from your phone.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: PRODUCT_NAME,
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1f7a3f",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f2f4f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e110f" },
+  ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+/**
+ * Props are typed explicitly rather than with Next's generated
+ * `LayoutProps<"/">`. That global only exists in `.next/types`, which is
+ * written by a build — so `pnpm typecheck` on a clean checkout couldn't
+ * resolve it, and CI failed at typecheck before ever reaching the tests.
+ */
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en-NZ"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        {children}
+      </body>
     </html>
   );
 }

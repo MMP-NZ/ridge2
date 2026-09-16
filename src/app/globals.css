@@ -1,41 +1,194 @@
 @import "tailwindcss";
 
+/**
+ * Design tokens.
+ *
+ * The roofer reads these screens one-handed, outdoors, often in direct sun,
+ * so contrast is deliberately pushed harder than a desk-bound app would need:
+ * body text and muted text both clear WCAG AA against their surface, borders
+ * are visible rather than hinted, and every solid fill has a matching
+ * `-contrast` token for the text that sits on it (white on green in light,
+ * near-black on a brighter green in dark — white on dark-mode green fails).
+ */
 :root {
-  --background: #f7f7f5;
+  color-scheme: light;
+
+  --background: #f2f4f1;
   --surface: #ffffff;
-  --foreground: #171717;
-  --muted: #6b6b68;
-  --border: #e4e4e1;
-  --accent: #1f7a3f;
-  --danger: #b3261e;
+  --surface-sunken: #e9ece7;
+  --foreground: #131613;
+  --muted: #585e57;
+  --border: #dbdfd7;
+  --border-strong: #c2c8bd;
+
+  --accent: #16703a;
+  --accent-strong: #0f5a2d;
+  --accent-soft: #e1f0e6;
+  --accent-contrast: #ffffff;
+
+  --danger: #a4231b;
+  --danger-strong: #851a14;
+  --danger-soft: #fbe9e7;
+  --danger-contrast: #ffffff;
+
+  --warning: #7d4a00;
+  --warning-soft: #fcf0da;
+
+  --ring: #16703a;
+
+  --elevation-card:
+    0 1px 2px rgb(16 24 16 / 0.05), 0 1px 3px rgb(16 24 16 / 0.05);
+  --elevation-lift:
+    0 6px 16px rgb(16 24 16 / 0.09), 0 1px 3px rgb(16 24 16 / 0.06);
+  --elevation-nav:
+    0 -1px 0 rgb(16 24 16 / 0.07), 0 -10px 28px rgb(16 24 16 / 0.07);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --background: #0e110f;
+    --surface: #171b18;
+    --surface-sunken: #11150f;
+    --foreground: #eaeee9;
+    --muted: #9ba49b;
+    --border: #2a302b;
+    --border-strong: #3d453e;
+
+    --accent: #45b06a;
+    --accent-strong: #5cc37f;
+    --accent-soft: #16291d;
+    --accent-contrast: #05150b;
+
+    --danger: #e2574d;
+    --danger-strong: #ef6f66;
+    --danger-soft: #2d1411;
+    --danger-contrast: #2a0a07;
+
+    --warning: #e0a54e;
+    --warning-soft: #2a2011;
+
+    --ring: #5cc37f;
+
+    --elevation-card: 0 1px 2px rgb(0 0 0 / 0.4);
+    --elevation-lift: 0 6px 18px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+    --elevation-nav: 0 -1px 0 rgb(0 0 0 / 0.5), 0 -10px 28px rgb(0 0 0 / 0.45);
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+
   --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-contrast: var(--danger-contrast);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --color-ring: var(--ring);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Typographic scale. Six steps, each with a fixed line height, so vertical
+     rhythm is consistent without every screen picking its own numbers. */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
+  --text-micro--letter-spacing: 0.02em;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.15rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.4rem;
+  --text-title: 1.0625rem;
+  --text-title--line-height: 1.4rem;
+  --text-heading: 1.3125rem;
+  --text-heading--line-height: 1.6rem;
+  --text-display: 1.625rem;
+  --text-display--line-height: 1.95rem;
+  --text-figure: 2rem;
+  --text-figure--line-height: 2.25rem;
+
+  --radius-field: 0.75rem;
+  --radius-card: 1rem;
+  --radius-pill: 999px;
+
+  --shadow-card: var(--elevation-card);
+  --shadow-lift: var(--elevation-lift);
+  --shadow-nav: var(--elevation-nav);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #121212;
-    --surface: #1c1c1c;
-    --foreground: #ededed;
-    --muted: #9a9a97;
-    --border: #2e2e2c;
-    --accent: #38a169;
-    --danger: #e05a52;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family:
+      var(--font-sans),
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Arial,
+      sans-serif;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Wet or gloved hands: kill the grey flash and the 300ms double-tap wait. */
+  a,
+  button,
+  label,
+  input,
+  select,
+  textarea,
+  summary {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* A single, unmissable focus ring for keyboard and switch-control users. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--accent);
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--foreground);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

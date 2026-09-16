@@ -1,14 +1,41 @@
 import { notFound } from "next/navigation";
 import { getBookingPageData } from "@/lib/booking/public-lookup";
-import { formatNzDate, formatNzDateTime } from "@/lib/time";
+import { formatNzDate } from "@/lib/time";
 import { PRODUCT_NAME } from "@/lib/config";
+import { BrandMark } from "@/components/brand-mark";
+import { CheckIcon, ClockIcon, PinIcon } from "@/components/icons";
+import {
+  Card,
+  EmptyState,
+  FormMessage,
+  formatNzTime,
+  formatNzWeekdayDate,
+} from "@/components/ui";
 import { submitBookingAction } from "./actions";
 
-const OUTCOME_MESSAGES: Record<string, string> = {
-  booked: "You're booked in — we've sent a confirmation.",
-  taken: "Sorry, someone else just took that time. Pick another below.",
-  unavailable: "That time's no longer available. Pick another below.",
+const OUTCOME_MESSAGES: Record<
+  string,
+  { tone: "success" | "error"; text: string }
+> = {
+  booked: {
+    tone: "success",
+    text: "You're booked in — we've sent a confirmation.",
+  },
+  taken: {
+    tone: "error",
+    text: "Sorry, someone else just took that time. Pick another below.",
+  },
+  unavailable: {
+    tone: "error",
+    text: "That time's no longer available. Pick another below.",
+  },
 };
+
+const REASSURANCES = [
+  "Free, with no obligation",
+  "Takes about 45 minutes on site",
+  "A written quote follows by email",
+];
 
 export default async function BookingPage({
   params,
@@ -31,65 +58,137 @@ export default async function BookingPage({
     groupedByDay.get(key)!.push(slot);
   }
 
-  return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
-      <div>
-        <h1 className="text-xl font-semibold">{data.businessName}</h1>
-        <p className="text-sm text-muted">Book a free roof check — via {PRODUCT_NAME}</p>
-      </div>
+  const outcomeMessage = outcome ? OUTCOME_MESSAGES[outcome] : undefined;
+  const showSlots =
+    !alreadyHandled &&
+    data.configured &&
+    !data.declined &&
+    data.slots.length > 0;
 
-      {outcome && OUTCOME_MESSAGES[outcome] ? (
-        <div className="rounded-xl border border-border bg-surface p-4 text-sm">{OUTCOME_MESSAGES[outcome]}</div>
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-10 pt-8">
+      <header className="flex flex-col items-center gap-4 text-center">
+        <BrandMark size={52} />
+        <div className="flex flex-col gap-1.5">
+          <p className="text-micro font-semibold uppercase tracking-[0.11em] text-muted">
+            Free roof check
+          </p>
+          <h1 className="text-display font-semibold tracking-[-0.025em] text-balance">
+            {data.businessName}
+          </h1>
+          <p className="text-body text-muted text-pretty">
+            Pick a time that suits and we&apos;ll come and take a look at your
+            roof.
+          </p>
+        </div>
+      </header>
+
+      {showSlots ? (
+        <ul className="mt-6 flex flex-col gap-2">
+          {REASSURANCES.map((line) => (
+            <li key={line} className="flex items-center gap-2.5 text-body">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-pill bg-accent text-accent-contrast">
+                <CheckIcon className="h-3 w-3" strokeWidth={3} />
+              </span>
+              <span className="min-w-0 text-muted">{line}</span>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
-      {alreadyHandled ? (
-        <div className="rounded-xl border border-border bg-surface p-6 text-center text-muted">
-          <p>This has already been booked — no need to do anything else.</p>
+      {outcomeMessage ? (
+        <div className="mt-6">
+          <FormMessage tone={outcomeMessage.tone}>
+            {outcomeMessage.text}
+          </FormMessage>
         </div>
-      ) : !data.configured ? (
-        <div className="rounded-xl border border-border bg-surface p-6 text-center text-muted">
-          <p>Online booking isn&apos;t switched on yet — we&apos;ll be in touch to arrange a time.</p>
-        </div>
-      ) : data.declined ? (
-        <div className="rounded-xl border border-border bg-surface p-6 text-center text-muted">
-          <p>{data.propertyAddress} is outside our usual service area — we&apos;ll be in touch about your options.</p>
-        </div>
-      ) : data.slots.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface p-6 text-center text-muted">
-          <p>No quote days are open right now — we&apos;ll be in touch to arrange a time.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-muted">{data.propertyAddress}</p>
-          {[...groupedByDay.entries()].map(([day, slots]) => (
-            <section key={day}>
-              <h2 className="mb-2 text-sm font-medium">{day}</h2>
-              <div className="flex flex-col gap-2">
-                {slots.map((slot) => (
-                  <form key={slot.toISOString()} action={submitBookingAction}>
-                    <input type="hidden" name="bookingToken" value={bookingToken} />
-                    <input type="hidden" name="startAt" value={slot.toISOString()} />
-                    <button
-                      type="submit"
-                      className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-left text-sm"
-                    >
-                      {formatNzDateTime(slot)}
-                    </button>
-                  </form>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+      ) : null}
 
-      <p className="mt-4 text-xs text-muted">
-        {data.businessName} and {PRODUCT_NAME} keep your details private — see our{" "}
-        <a href="/privacy" className="underline">
-          privacy statement
-        </a>
-        .
-      </p>
+      <div className="mt-6 flex flex-col gap-4">
+        {alreadyHandled ? (
+          <EmptyState
+            icon={<CheckIcon className="h-6 w-6" strokeWidth={2.25} />}
+            title="You're all sorted"
+            description="This has already been booked — there's nothing else you need to do."
+          />
+        ) : !data.configured ? (
+          <EmptyState
+            icon={<ClockIcon className="h-6 w-6" />}
+            title="Online booking isn't open yet"
+            description={`${data.businessName} will be in touch shortly to arrange a time.`}
+          />
+        ) : data.declined ? (
+          <EmptyState
+            icon={<PinIcon className="h-6 w-6" />}
+            title="Just outside our usual patch"
+            description={`${data.propertyAddress} is outside the area we normally cover — we'll be in touch about your options.`}
+          />
+        ) : data.slots.length === 0 ? (
+          <EmptyState
+            icon={<ClockIcon className="h-6 w-6" />}
+            title="No times open right now"
+            description={`${data.businessName} will be in touch to arrange a time that works.`}
+          />
+        ) : (
+          <>
+            <Card tone="accent" className="flex items-start gap-2.5">
+              <PinIcon className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
+              <div className="min-w-0">
+                <p className="text-micro font-semibold uppercase tracking-[0.08em] text-muted">
+                  Visiting
+                </p>
+                <p className="text-body font-semibold">
+                  {data.propertyAddress}
+                </p>
+              </div>
+            </Card>
+
+            {[...groupedByDay.entries()].map(([day, slots]) => (
+              <section key={day} className="flex flex-col gap-2.5">
+                <h2 className="text-title font-semibold tracking-[-0.01em]">
+                  {formatNzWeekdayDate(slots[0])}
+                </h2>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {slots.map((slot) => (
+                    <form key={slot.toISOString()} action={submitBookingAction}>
+                      <input
+                        type="hidden"
+                        name="bookingToken"
+                        value={bookingToken}
+                      />
+                      <input
+                        type="hidden"
+                        name="startAt"
+                        value={slot.toISOString()}
+                      />
+                      <button
+                        type="submit"
+                        className="flex min-h-14 w-full items-center justify-center rounded-field border border-border-strong bg-surface px-3 text-title font-semibold tabular-nums tracking-[-0.01em] shadow-card transition-[background-color,border-color,color,transform,box-shadow] duration-150 hover:border-accent hover:bg-accent-soft active:scale-[0.98] active:bg-accent active:text-accent-contrast active:shadow-none"
+                      >
+                        {formatNzTime(slot)}
+                      </button>
+                    </form>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </>
+        )}
+      </div>
+
+      <footer className="mt-10 border-t border-border pt-5 text-center">
+        <p className="text-caption text-muted text-pretty">
+          Booking handled for {data.businessName} by {PRODUCT_NAME}. Your
+          details are only used to arrange this visit — read our{" "}
+          <a
+            href="/privacy"
+            className="font-medium text-accent underline underline-offset-2"
+          >
+            privacy statement
+          </a>
+          .
+        </p>
+      </footer>
     </main>
   );
 }

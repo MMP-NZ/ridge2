@@ -6,6 +6,15 @@ export const JOB_NAMES = {
   MARK_COLD_7D: "mark-cold-7d",
   SEND_VISIT_CONFIRMATION: "send-visit-confirmation",
   SEND_VISIT_REMINDER: "send-visit-reminder",
+  SEND_QUOTE: "send-quote",
+  QUOTE_FOLLOW_UP_3D: "quote-follow-up-3d",
+  QUOTE_FOLLOW_UP_7D: "quote-follow-up-7d",
+  SEND_JOB_CONFIRMATION: "send-job-confirmation",
+  SEND_JOB_MOVED: "send-job-moved",
+  SEND_JOB_REMINDER: "send-job-reminder",
+  PUSH_INVOICE: "push-invoice",
+  SYNC_XERO: "sync-xero",
+  INVOICE_OVERDUE: "invoice-overdue",
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];
@@ -18,4 +27,37 @@ export interface LeadJobPayload {
 export interface VisitJobPayload {
   tenantId: string;
   visitId: string;
+}
+
+export interface QuoteJobPayload {
+  tenantId: string;
+  quoteId: string;
+}
+
+export interface InvoiceJobPayload {
+  tenantId: string;
+  jobId: string;
+}
+
+export interface SyncJobPayload {
+  tenantId: string;
+}
+
+export interface OverdueJobPayload {
+  tenantId: string;
+  invoiceId: string;
+  /** 7, 14 or 21 — which reminder in the sequence this is. */
+  daysOverdue: number;
+}
+
+export interface WorkJobPayload {
+  tenantId: string;
+  jobId: string;
+  /**
+   * The first work day this message is about, as YYYY-MM-DD. The reminder
+   * handler compares it against the job's current first day and no-ops if
+   * they differ — that's what stops a reminder firing for a date the job
+   * has since been moved off, without needing job cancellation.
+   */
+  forDate: string;
 }

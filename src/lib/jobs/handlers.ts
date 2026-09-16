@@ -1,8 +1,9 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { withSystemTenantContext } from "@/db/client";
 import type { AppTx } from "@/db/client";
-import { leads, customers, tenants, visits, type Customer } from "@/db/schema";
+import { leads, customers, tenants, visits, quotes, jobs, jobDays, type Customer } from "@/db/schema";
 import { closeLead } from "@/lib/crm/leads";
+import { formatNzd } from "@/lib/money";
 import { sendTransactional } from "@/lib/messaging/send";
 import {
   bookingLinkMessage,
@@ -10,8 +11,14 @@ import {
   noBookingNudge2dMessage,
   visitConfirmationMessage,
   visitReminderMessage,
+  quoteSentMessage,
+  quoteFollowUp3dMessage,
+  quoteFollowUp7dMessage,
+  jobConfirmationMessage,
+  jobMovedMessage,
+  jobReminderMessage,
 } from "@/lib/messaging/templates";
-import type { LeadJobPayload, VisitJobPayload } from "./queue-names";
+import type { LeadJobPayload, VisitJobPayload, QuoteJobPayload, WorkJobPayload } from "./queue-names";
 
 /** Sends the same rendered message over every channel the customer has contact details for. */
 async function sendToCustomer(
@@ -113,6 +120,111 @@ export async function handleSendVisitConfirmation(payload: VisitJobPayload): Pro
     if (!row) return;
     const message = visitConfirmationMessage(row.tenant.businessName, row.visit.startAt);
     await sendToCustomer(tx, payload.tenantId, row.customer, row.lead.id, "visit_confirmation", message);
+  });
+}
+
+async function getQuoteContext(tx: AppTx, tenantId: string, quoteId: string) {
+  const [row] = await tx
+    .select({ quote: quotes, lead: leads, customer: customers, tenant: tenants })
+    .from(quotes)
+    .innerJoin(leads, eq(leads.id, quotes.leadId))
+    .innerJoin(customers, eq(customers.id, quotes.customerId))
+    .innerJoin(tenants, eq(tenants.id, quotes.tenantId))
+    .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, quoteId)));
+  return row;
+}
+
+export async function handleSendQuote(payload: QuoteJobPayload): Promise<void> {
+  await withSystemTenantContext(payload.tenantId, async (tx) => {
+    const row = await getQuoteContext(tx, payload.tenantId, payload.quoteId);
+    if (!row) return;
+    const message = quoteSentMessage(
+      row.tenant.businessName,
+      row.quote.quoteToken,
+      formatNzd(row.quote.totalIncGstCents),
+    );
+    await sendToCustomer(tx, payload.tenantId, row.customer, row.lead.id, "quote_sent", message);
+  });
+}
+
+/**
+ * Shared by both quote follow-ups. The "still sent" check is what stops the
+ * sequence the moment the customer answers — accepted, declined or
+ * superseded by a revision all take the quote out of `sent`. Same
+ * state-guard approach as M2's nudges: nothing is cancelled, the handler
+ * just re-reads and decides.
+ */
+async function handleQuoteFollowUp(
+  payload: QuoteJobPayload,
+  templateKey: string,
+  renderMessage: (businessName: string, quoteToken: string) => { subject: string; body: string },
+): Promise<void> {
+  await withSystemTenantContext(payload.tenantId, async (tx) => {
+    const row = await getQuoteContext(tx, payload.tenantId, payload.quoteId);
+    if (!row || row.quote.status !== "sent") return;
+    const message = renderMessage(row.tenant.businessName, row.quote.quoteToken);
+    await sendToCustomer(tx, payload.tenantId, row.customer, row.lead.id, templateKey, message);
+  });
+}
+
+export function handleQuoteFollowUp3d(payload: QuoteJobPayload): Promise<void> {
+  return handleQuoteFollowUp(payload, "quote_follow_up_3d", quoteFollowUp3dMessage);
+}
+
+export function handleQuoteFollowUp7d(payload: QuoteJobPayload): Promise<void> {
+  return handleQuoteFollowUp(payload, "quote_follow_up_7d", quoteFollowUp7dMessage);
+}
+
+async function getWorkJobContext(tx: AppTx, tenantId: string, jobId: string) {
+  const [row] = await tx
+    .select({ job: jobs, customer: customers, tenant: tenants, lead: leads })
+    .from(jobs)
+    .innerJoin(customers, eq(customers.id, jobs.customerId))
+    .innerJoin(leads, eq(leads.id, jobs.leadId))
+    .innerJoin(tenants, eq(tenants.id, jobs.tenantId))
+    .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, jobId)));
+  if (!row) return null;
+
+  const days = await tx
+    .select({ workDate: jobDays.workDate })
+    .from(jobDays)
+    .where(and(eq(jobDays.tenantId, tenantId), eq(jobDays.jobId, jobId)))
+    .orderBy(asc(jobDays.workDate));
+
+  return { ...row, days: days.map((d) => d.workDate) };
+}
+
+export async function handleSendJobConfirmation(payload: WorkJobPayload): Promise<void> {
+  await withSystemTenantContext(payload.tenantId, async (tx) => {
+    const row = await getWorkJobContext(tx, payload.tenantId, payload.jobId);
+    if (!row || row.job.status !== "scheduled") return;
+    const message = jobConfirmationMessage(row.tenant.businessName, row.days);
+    await sendToCustomer(tx, payload.tenantId, row.customer, row.lead.id, "job_confirmation", message);
+  });
+}
+
+export async function handleSendJobMoved(payload: WorkJobPayload): Promise<void> {
+  await withSystemTenantContext(payload.tenantId, async (tx) => {
+    const row = await getWorkJobContext(tx, payload.tenantId, payload.jobId);
+    if (!row || row.job.status !== "scheduled") return;
+    const message = jobMovedMessage(row.tenant.businessName, row.days);
+    await sendToCustomer(tx, payload.tenantId, row.customer, row.lead.id, "job_moved", message);
+  });
+}
+
+/**
+ * The day-before reminder. Guarded on the job still being scheduled *and*
+ * still starting on the day this reminder was queued for — if it has since
+ * moved, the reschedule queued its own reminder and this one is stale.
+ * Same state-guard approach as M2's nudges; nothing is ever cancelled.
+ */
+export async function handleSendJobReminder(payload: WorkJobPayload): Promise<void> {
+  await withSystemTenantContext(payload.tenantId, async (tx) => {
+    const row = await getWorkJobContext(tx, payload.tenantId, payload.jobId);
+    if (!row || row.job.status !== "scheduled") return;
+    if (row.days[0] !== payload.forDate) return;
+    const message = jobReminderMessage(row.tenant.businessName, row.days);
+    await sendToCustomer(tx, payload.tenantId, row.customer, row.lead.id, "job_reminder", message);
   });
 }
 

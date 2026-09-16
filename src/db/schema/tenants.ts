@@ -25,6 +25,12 @@ export const tenants = pgTable("tenants", {
   commissionRateBp: integer("commission_rate_bp").notNull().default(600),
   commissionCapCents: integer("commission_cap_cents").notNull().default(500_000),
 
+  // The agreed monthly plan price ex GST. Stored per tenant rather than
+  // derived from `plan`, because the founding-price lock means two roofers
+  // on the same plan can legitimately be paying different amounts — see
+  // src/lib/billing/calculate.ts.
+  monthlyFeeCents: integer("monthly_fee_cents").notNull().default(20_000),
+
   // Embedded in this tenant's Juno-built website so it can POST enquiries
   // to /api/public/leads/[intakeKey] — see src/lib/crm/intake.ts. Readable
   // pre-authentication (ridge_auth), so it must never double as a secret

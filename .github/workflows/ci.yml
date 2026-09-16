@@ -30,8 +30,14 @@ jobs:
       # Only used by db:migrate below (targets the same test DB as DATABASE_TEST_MIGRATE_URL).
       DATABASE_MIGRATE_URL: postgres://admin:admin@localhost:5432/ridge_test
       SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-only-session-secret-0000000000000000000000000000000' }}
-      TOTP_ENCRYPTION_KEY: ${{ secrets.TOTP_ENCRYPTION_KEY || '0000000000000000000000000000000000000000000000000000000000ab' }}
+      # Renamed from TOTP_ENCRYPTION_KEY in M3 when Meta tokens started using
+      # the same helper. CI kept setting the old name, so every test that
+      # encrypts anything failed here while passing locally.
+      SECRET_ENCRYPTION_KEY: ${{ secrets.SECRET_ENCRYPTION_KEY || '0000000000000000000000000000000000000000000000000000000000000000' }}
+      # The safe defaults, set explicitly so CI never depends on them.
       LOG_ONLY_TRANSPORT: "true"
+      LOCAL_PHOTO_STORE: "true"
+      FAKE_XERO: "true"
 
     steps:
       - uses: actions/checkout@v4

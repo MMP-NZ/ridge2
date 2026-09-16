@@ -71,6 +71,48 @@ export async function advanceLeadStage(tx: AppTx, tenantId: string, leadId: stri
   return updated;
 }
 
+/**
+ * Moves a lead forward to a specific stage, skipping intermediate ones, and
+ * does nothing if it is already at or past that stage.
+ *
+ * This is what M4's automatic transitions use, and it exists because
+ * advanceLeadStage can't serve them: accepting a quote takes a lead from
+ * `visited` straight to `won` (two steps), and a visit captured offline can
+ * sync after the roofer has already moved the lead on by hand, or twice if a
+ * queued request is retried. Both would throw or double-count through the
+ * step-by-step path. Being a no-op when the lead is already ahead is what
+ * makes the offline replay safe.
+ *
+ * A lead that's already `lost` or `won` is left alone — closing is the
+ * roofer's decision to reverse, not an automatic transition's.
+ */
+export async function advanceLeadStageTo(
+  tx: AppTx,
+  tenantId: string,
+  leadId: string,
+  target: (typeof STAGE_ORDER)[number],
+  actor: LeadActor,
+): Promise<Lead> {
+  const current = await getLeadOrThrow(tx, tenantId, leadId);
+  if (current.stage === "lost" || current.stage === "won") return current;
+
+  const currentIndex = STAGE_ORDER.indexOf(current.stage as (typeof STAGE_ORDER)[number]);
+  const targetIndex = STAGE_ORDER.indexOf(target);
+  if (currentIndex >= targetIndex) return current;
+
+  const [updated] = await tx
+    .update(leads)
+    .set({ stage: target, updatedAt: new Date() })
+    .where(eq(leads.id, leadId))
+    .returning();
+
+  await tx
+    .insert(leadEvents)
+    .values({ tenantId, leadId, type: "stage_changed", fromValue: current.stage, toValue: target, actorType: actor.type, actorId: actor.id });
+
+  return updated;
+}
+
 /** Closes a lead as lost (the pipeline's "big red button"). */
 export async function closeLead(tx: AppTx, tenantId: string, leadId: string, actor: LeadActor): Promise<Lead> {
   const current = await getLeadOrThrow(tx, tenantId, leadId);

@@ -3,10 +3,10 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, and } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { withRooferAccess, withStaffTenantAccess } from "@/lib/auth/with-tenant-context";
+import { withRooferAccess } from "@/lib/auth/with-tenant-context";
 import { withRooferTenantContext } from "@/db/client";
 import { findOrCreateCustomer, findOrCreateProperty } from "@/lib/crm/dedupe";
-import { createLead, advanceLeadStage, closeLead, changeLeadSource } from "@/lib/crm/leads";
+import { createLead, advanceLeadStage, advanceLeadStageTo, closeLead, changeLeadSource } from "@/lib/crm/leads";
 import { submitWebsiteLead } from "@/lib/crm/intake";
 import { truncateAllTables } from "./db-helpers";
 import { makeTenant } from "./factories";
@@ -173,6 +173,59 @@ describe("lead pipeline", () => {
     await withRooferAccess(tenant.id, (tx) => closeLead(tx, tenant.id, lead.id, { type: "roofer" }));
 
     await expect(withRooferAccess(tenant.id, (tx) => closeLead(tx, tenant.id, lead.id, { type: "roofer" }))).rejects.toThrow();
+  });
+
+  // advanceLeadStageTo is what M4's automatic transitions use. advanceLeadStage
+  // can't serve them: accepting a quote is a two-stage jump, and an offline
+  // capture can sync late or twice.
+  test("advanceLeadStageTo jumps straight to a later stage and logs one event", async () => {
+    const tenant = await makeTenant(ownerDb, "Jump Co");
+    const lead = await makeLead(tenant.id);
+
+    const updated = await withRooferAccess(tenant.id, (tx) =>
+      advanceLeadStageTo(tx, tenant.id, lead.id, "won", { type: "system" }),
+    );
+    expect(updated.stage).toBe("won");
+
+    const events = await ownerDb
+      .select()
+      .from(schema.leadEvents)
+      .where(and(eq(schema.leadEvents.leadId, lead.id), eq(schema.leadEvents.type, "stage_changed")));
+    expect(events).toHaveLength(1);
+    expect(events[0].fromValue).toBe("new");
+    expect(events[0].toValue).toBe("won");
+  });
+
+  test("advanceLeadStageTo is a no-op when the lead is already at or past the target", async () => {
+    const tenant = await makeTenant(ownerDb, "No Op Co");
+    const lead = await makeLead(tenant.id);
+
+    await withRooferAccess(tenant.id, (tx) => advanceLeadStageTo(tx, tenant.id, lead.id, "quoted", { type: "system" }));
+    // A replayed offline sync, and a stage the roofer has already moved past.
+    await withRooferAccess(tenant.id, (tx) => advanceLeadStageTo(tx, tenant.id, lead.id, "quoted", { type: "system" }));
+    const after = await withRooferAccess(tenant.id, (tx) =>
+      advanceLeadStageTo(tx, tenant.id, lead.id, "visited", { type: "system" }),
+    );
+
+    expect(after.stage).toBe("quoted");
+
+    const events = await ownerDb
+      .select()
+      .from(schema.leadEvents)
+      .where(and(eq(schema.leadEvents.leadId, lead.id), eq(schema.leadEvents.type, "stage_changed")));
+    expect(events).toHaveLength(1);
+  });
+
+  test("advanceLeadStageTo leaves a closed lead alone", async () => {
+    const tenant = await makeTenant(ownerDb, "Closed Stays Closed Co");
+    const lead = await makeLead(tenant.id);
+
+    await withRooferAccess(tenant.id, (tx) => closeLead(tx, tenant.id, lead.id, { type: "roofer" }));
+    const after = await withRooferAccess(tenant.id, (tx) =>
+      advanceLeadStageTo(tx, tenant.id, lead.id, "won", { type: "system" }),
+    );
+
+    expect(after.stage).toBe("lost");
   });
 
   test("changeLeadSource is staff-only, logs a lead_event and an audit_log row", async () => {
