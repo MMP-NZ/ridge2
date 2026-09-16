@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // esbuild output from scripts/bundle-scripts.mjs.
+    "dist/**",
   ]),
 ]);
 

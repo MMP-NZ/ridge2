@@ -44,3 +44,6 @@ next-env.d.ts
 
 # site visit photos written by the local-disk PhotoStore (dev/test default)
 /.photos/
+
+# esbuild output for the worker, migrations and setup scripts (scripts/bundle-scripts.mjs)
+/dist

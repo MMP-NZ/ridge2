@@ -1,0 +1,114 @@
+# Staging on Render. See docs/deploy.md before changing anything here.
+#
+# FICTIONAL DATA ONLY. Render has no NZ region, and CLAUDE.md locks customer
+# data to NZ hosting. Singapore is the closest region. No real roofer's
+# customers go into this environment unless that decision is changed first
+# (docs/decisions.md, 16 Sep 2026).
+#
+# Service names are "-staging" so a later production Blueprint can't be
+# mistaken for this one.
+
+databases:
+  - name: ridge-staging-db
+    region: singapore
+    plan: basic-256mb
+    postgresMajorVersion: "16" # Matches CI, and can't be changed after creation
+    databaseName: ridge
+    ipAllowList: [] # Reachable only from Render's private network
+
+envVarGroups:
+  # Non-secret settings both processes share. Render doesn't allow generated
+  # or prompted values in a group, so the secrets live on ridge-staging-web
+  # and the worker reads them from there.
+  - name: ridge-staging-config
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # CLAUDE.md: no outbound message reaches a real person outside
+      # production. Staging logs texts and emails instead of sending them.
+      - key: LOG_ONLY_TRANSPORT
+        value: "true"
+      - key: FAKE_XERO
+        value: "true"
+      - key: NEXT_PUBLIC_PRODUCT_NAME
+        value: Juno Logic Platform
+
+services:
+  - type: web
+    name: ridge-staging-web
+    runtime: docker
+    region: singapore
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    # Deploy only once CI is green on main.
+    autoDeployTrigger: checksPass
+    # Runs after the image builds and before traffic moves, so a migration
+    # that fails stops the deploy and the old version keeps serving.
+    preDeployCommand: node dist/migrate.mjs
+    healthCheckPath: /api/health
+    disk:
+      name: photos
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - fromGroup: ridge-staging-config
+      - key: DATABASE_MIGRATE_URL
+        fromDatabase:
+          name: ridge-staging-db
+          property: connectionString
+      # The runtime roles' passwords. migrate.mjs sets them on the roles each
+      # deploy, and src/db/urls.ts builds each role's connection string from
+      # them, so nobody ever types or copies a connection string.
+      - key: RIDGE_APP_PASSWORD
+        generateValue: true
+      - key: RIDGE_AUTH_PASSWORD
+        generateValue: true
+      # Prompted when the Blueprint is applied. Must be 64 hex characters:
+      #   openssl rand -hex 32
+      - key: SECRET_ENCRYPTION_KEY
+        sync: false
+      # Prompted. The site's public address, e.g. https://ridge-staging-web.onrender.com
+      # Next bakes it in at build time, so a change needs a redeploy.
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: LOCAL_PHOTO_STORE
+        value: "true"
+      - key: PHOTO_STORE_DIR
+        value: /var/data/photos
+
+  - type: worker
+    name: ridge-staging-worker
+    runtime: docker
+    region: singapore
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerCommand: node dist/worker.mjs
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: ridge-staging-config
+      - key: DATABASE_MIGRATE_URL
+        fromDatabase:
+          name: ridge-staging-db
+          property: connectionString
+      - key: RIDGE_APP_PASSWORD
+        fromService:
+          type: web
+          name: ridge-staging-web
+          envVarKey: RIDGE_APP_PASSWORD
+      - key: RIDGE_AUTH_PASSWORD
+        fromService:
+          type: web
+          name: ridge-staging-web
+          envVarKey: RIDGE_AUTH_PASSWORD
+      - key: SECRET_ENCRYPTION_KEY
+        fromService:
+          type: web
+          name: ridge-staging-web
+          envVarKey: SECRET_ENCRYPTION_KEY
+      # Message templates build booking and quote links from this, and the
+      # worker is what sends them.
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          type: web
+          name: ridge-staging-web
+          envVarKey: NEXT_PUBLIC_APP_URL
