@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeEach, afterAll } from "vitest";
-import { mkdtemp, rm, readdir } from "node:fs/promises";
+import { mkdtemp, rm, readdir, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { localDiskPhotoStore } from "@/lib/photos/local-disk";
-import { getPhotoStore } from "@/lib/photos/store";
+import { getPhotoStore, photoStoreProblem } from "@/lib/photos/store";
 import { photoStorageKey } from "@/lib/photos/types";
 
 let dir: string;
@@ -86,5 +86,43 @@ describe("getPhotoStore", () => {
     process.env.LOCAL_PHOTO_STORE = "false";
     expect(getPhotoStore()).not.toBe(localDiskPhotoStore);
     delete process.env.LOCAL_PHOTO_STORE;
+  });
+});
+
+describe("photoStoreProblem (health check)", () => {
+  const env = process.env as Record<string, string | undefined>;
+
+  test("a production server with no photo directory is unhealthy, because the container disk is wiped each deploy", async () => {
+    const nodeEnv = env.NODE_ENV;
+    delete env.PHOTO_STORE_DIR;
+    env.NODE_ENV = "production";
+    try {
+      expect(await photoStoreProblem()).toMatch(/lost on the next deploy/);
+    } finally {
+      env.NODE_ENV = nodeEnv;
+    }
+  });
+
+  test("a writable photo directory is healthy", async () => {
+    expect(await photoStoreProblem()).toBeNull();
+  });
+
+  test("a disk the app can't write to is unhealthy", async () => {
+    await chmod(dir, 0o500);
+    try {
+      expect(await photoStoreProblem()).toMatch(/not writable/);
+    } finally {
+      await chmod(dir, 0o700);
+    }
+  });
+
+  test("real S3 has nothing to check on disk", async () => {
+    env.LOCAL_PHOTO_STORE = "false";
+    delete env.PHOTO_STORE_DIR;
+    try {
+      expect(await photoStoreProblem()).toBeNull();
+    } finally {
+      delete env.LOCAL_PHOTO_STORE;
+    }
   });
 });
