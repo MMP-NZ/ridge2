@@ -160,3 +160,25 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/api/health && exit 0; sleep 1; done
           cat ../../web.log
           exit 1
+
+  # The rehearsal above runs the Dockerfile's commands directly. This builds
+  # the Dockerfile itself, so Render is never the first place it's built,
+  # and checks the image holds everything the other processes need.
+  docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image Render builds
+        run: docker build --build-arg NEXT_PUBLIC_APP_URL=https://staging.example.com -t ridge:ci .
+
+      - name: Image contains the server, worker, migrations and setup scripts
+        run: |
+          docker run --rm --entrypoint sh ridge:ci -c '
+            set -e
+            for f in server.js dist/worker.mjs dist/migrate.mjs dist/bootstrap.mjs dist/seed.mjs dist/roles.sql dist/migrations/meta/_journal.json; do
+              test -f "$f" || { echo "missing: $f"; exit 1; }
+            done
+            test "$(id -u)" = 1001
+            echo "image ok, running as uid $(id -u)"
+          '
