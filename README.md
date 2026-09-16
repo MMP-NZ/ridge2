@@ -7,7 +7,7 @@ Codename for the Juno Logic client platform. See [`CLAUDE.md`](./CLAUDE.md) for 
 Requires Node 22+, pnpm (`corepack enable`), and a local PostgreSQL 16.
 
 ```bash
-cp .env.example .env.local   # fill in SESSION_SECRET / TOTP_ENCRYPTION_KEY (openssl rand -hex 32)
+cp .env.example .env.local   # fill in SECRET_ENCRYPTION_KEY (openssl rand -hex 32)
 createdb ridge_dev
 createdb ridge_test
 pnpm install
@@ -17,6 +17,8 @@ pnpm dev
 ```
 
 Open http://localhost:3000 — installable as a PWA, phone-first (390px baseline).
+
+Staging runs on Render; see [`docs/deploy.md`](./docs/deploy.md).
 
 ## Commands
 
@@ -30,6 +32,9 @@ Open http://localhost:3000 — installable as a PWA, phone-first (390px baseline
 | `pnpm db:generate` | Generate a Drizzle migration from `src/db/schema` |
 | `pnpm db:migrate` | Apply migrations (and ensure `ridge_auth`/`ridge_app` roles exist) |
 | `pnpm db:seed` | Seed one fictional demo tenant |
+| `pnpm db:bootstrap <email> "<name>"` | Create the first Juno Logic staff login, printing a generated password once |
+| `pnpm worker` | Run the background job worker alongside `pnpm dev` |
+| `pnpm bundle` | Bundle the worker, migrations and setup scripts into `dist/` for the Docker image |
 
 ## Architecture notes
 

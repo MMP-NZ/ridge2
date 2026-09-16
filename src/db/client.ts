@@ -2,12 +2,7 @@ import postgres from "postgres";
 import { sql as rawSql } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set (see .env.example)`);
-  return value;
-}
+import { roleDatabaseUrl } from "./urls";
 
 // Lazy singletons — created on first use so this module can be imported in
 // contexts (e.g. tooling) that don't have every DATABASE_* var set.
@@ -15,7 +10,7 @@ let authDbInstance: PostgresJsDatabase<typeof schema> | undefined;
 let appDbInstance: PostgresJsDatabase<typeof schema> | undefined;
 
 function getAppDb(): PostgresJsDatabase<typeof schema> {
-  appDbInstance ??= drizzle(postgres(requireEnv("DATABASE_URL")), { schema });
+  appDbInstance ??= drizzle(postgres(roleDatabaseUrl("ridge_app")), { schema });
   return appDbInstance;
 }
 
@@ -26,8 +21,17 @@ function getAppDb(): PostgresJsDatabase<typeof schema> {
  * (enforced by GRANT, not just RLS) — see src/db/migrations/0001_rls_policies.sql.
  */
 export function authDb(): PostgresJsDatabase<typeof schema> {
-  authDbInstance ??= drizzle(postgres(requireEnv("DATABASE_AUTH_URL")), { schema });
+  authDbInstance ??= drizzle(postgres(roleDatabaseUrl("ridge_auth")), { schema });
   return authDbInstance;
+}
+
+/**
+ * For the health check. Connects as ridge_app, so a pass proves that role
+ * exists, its password matches, and the database is reachable. It reads
+ * no table, so it touches no tenant's data.
+ */
+export async function pingAppDb(): Promise<void> {
+  await getAppDb().execute(rawSql`select 1`);
 }
 
 type TransactionCallback = Parameters<PostgresJsDatabase<typeof schema>["transaction"]>[0];

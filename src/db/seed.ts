@@ -2,30 +2,23 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config();
 
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth/password";
 import { generateIntakeKey } from "@/lib/crm/intake";
 import { DEFAULT_PRICE_BOOK } from "@/lib/price-book/items";
+import { withSetupContext } from "./setup-context";
 
 /**
  * One fictional demo tenant, per CLAUDE.md's build-plan M0 requirement and
  * its "seed data is fictional" non-negotiable. Run with: pnpm db:seed
  *
- * Connects with the migration role (not ridge_app) since seeding needs to
- * write across tenants without going through the request-scoped RLS
- * context — this script is a dev/staging tool, not a request path.
+ * Writes through ridge_app in staff context (see src/db/setup-context.ts),
+ * so it works on a hosted database whose owner isn't a superuser.
  */
 async function main() {
-  const url = process.env.DATABASE_MIGRATE_URL;
-  if (!url) throw new Error("DATABASE_MIGRATE_URL is not set (see .env.example)");
+  const intakeKey = generateIntakeKey();
 
-  const sql = postgres(url, { max: 1 });
-  const db = drizzle(sql, { schema });
-
-  try {
-    const intakeKey = generateIntakeKey();
+  await withSetupContext(async (db) => {
     const [tenant] = await db
       .insert(schema.tenants)
       .values({
@@ -74,9 +67,7 @@ async function main() {
     console.log("Demo roofer login: demo.roofer@example.com / demo-password-not-for-real-use");
     console.log(`Website intake URL: POST /api/public/leads/${intakeKey}`);
     console.log("Juno Logic staff login: staff@junologic.example / staff-password-not-for-real-use");
-  } finally {
-    await sql.end();
-  }
+  });
 }
 
 main().catch((err) => {
